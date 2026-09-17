@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Backend env / data
+backend/.env
+backend/*.db
+backend/*.sqlite3
+
+# Node / frontend
+node_modules/
+extension/dist/
+extension/.vite/
+npm-debug.log*
+
+# OS
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
