@@ -12,6 +12,17 @@
   --border: #e3ece6;
   --bg: #fbfdfb;
   --card: #ffffff;
+  --input-bg: #ffffff;
+  --dropzone-bg: #f6faf7;
+  --dropzone-border: #b9d9c4;
+  --chip-bg: #e5f7ec;
+  --chip-text: #0f6b3c;
+  --success-bg: #e9f8ef;
+  --privacy-bg-1: #eefaf2;
+  --privacy-bg-2: #f8fdf9;
+  --privacy-border: #d7ecdf;
+  --sidebar-bg: #ffffff;
+  --sidebar-active-bg: #e5f7ec;
 
   --dark-bg: #0a130f;
   --dark-border: rgba(255, 255, 255, 0.1);
@@ -31,6 +42,27 @@
   --shadow-md: 0 12px 32px rgba(15, 107, 60, 0.12);
   --shadow-lg: 0 24px 64px rgba(15, 107, 60, 0.16);
   --max-width: 1120px;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ink: #eef5f0;
+  --muted: #9db3a8;
+  --border: rgba(255, 255, 255, 0.12);
+  --bg: #0d1713;
+  --card: #10201a;
+  --input-bg: #16281f;
+  --dropzone-bg: #142219;
+  --dropzone-border: rgba(69, 224, 143, 0.35);
+  --chip-bg: rgba(69, 224, 143, 0.15);
+  --chip-text: #7be3ab;
+  --danger-bg: rgba(214, 69, 69, 0.16);
+  --success-bg: rgba(69, 224, 143, 0.14);
+  --privacy-bg-1: rgba(69, 224, 143, 0.08);
+  --privacy-bg-2: rgba(69, 224, 143, 0.03);
+  --privacy-border: rgba(69, 224, 143, 0.18);
+  --sidebar-bg: #0f1c16;
+  --sidebar-active-bg: rgba(69, 224, 143, 0.14);
 }
 
 * {
@@ -120,8 +152,8 @@ a {
 }
 
 .btn-secondary {
-  background: white;
-  color: var(--green-dark);
+  background: var(--card);
+  color: var(--chip-text);
   border: 1.5px solid var(--border);
 }
 
@@ -177,8 +209,8 @@ a {
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.02em;
-  color: var(--green-dark);
-  background: #e5f7ec;
+  color: var(--chip-text);
+  background: var(--chip-bg);
   padding: 6px 13px;
   border-radius: 999px;
 }
@@ -230,7 +262,7 @@ a {
   border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
   font-size: 14.5px;
-  background: white;
+  background: var(--input-bg);
   font-family: var(--font-body);
   color: var(--ink);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
@@ -246,9 +278,10 @@ a {
 .field input[type="file"] {
   width: 100%;
   padding: 22px 16px;
-  border: 1.5px dashed #b9d9c4;
+  border: 1.5px dashed var(--dropzone-border);
   border-radius: var(--radius-md);
-  background: #f6faf7;
+  background: var(--dropzone-bg);
+  color: var(--ink);
   cursor: pointer;
   font-size: 13px;
 }
@@ -266,8 +299,8 @@ a {
 }
 
 .alert-success {
-  color: var(--green-dark);
-  background: #e9f8ef;
+  color: var(--chip-text);
+  background: var(--success-bg);
 }
 
 /* ---------- top nav (always dark, bookends the footer) ---------- */
@@ -322,6 +355,27 @@ a {
 
 .nav-links a:hover {
   color: white;
+}
+
+.theme-toggle {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  border: 1px solid var(--dark-border);
+  background: rgba(255, 255, 255, 0.06);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 15px;
+  padding: 0;
+  transition: background 0.15s ease, transform 0.12s ease;
+}
+
+.theme-toggle:hover {
+  background: rgba(255, 255, 255, 0.12);
+  transform: translateY(-1px);
 }
 
 /* ---------- landing hero (dark) ---------- */
@@ -520,8 +574,8 @@ a {
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  background: #e5f7ec;
-  color: var(--green-dark);
+  background: var(--chip-bg);
+  color: var(--chip-text);
   font-weight: 800;
   display: flex;
   align-items: center;
@@ -540,8 +594,8 @@ a {
 }
 
 .privacy-card {
-  background: linear-gradient(135deg, #eefaf2, #f8fdf9);
-  border: 1px solid #d7ecdf;
+  background: linear-gradient(135deg, var(--privacy-bg-1), var(--privacy-bg-2));
+  border: 1px solid var(--privacy-border);
 }
 
 /* ---------- curtain section: scroll-flattened colored panel ---------- */
@@ -669,13 +723,119 @@ a {
   margin-bottom: 24px;
 }
 
-/* ---------- dashboard ---------- */
+/* ---------- dashboard app-shell ---------- */
 
-.dashboard-layout {
-  padding: 40px 0 80px;
+.app-shell {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  align-items: start;
+  gap: 32px;
+  padding: 32px 0 80px;
+}
+
+@media (max-width: 780px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sidebar {
+  position: sticky;
+  top: 84px;
+  background: var(--sidebar-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+@media (max-width: 780px) {
+  .sidebar {
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+  }
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-body);
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.sidebar-link:hover {
+  background: var(--sidebar-active-bg);
+  color: var(--chip-text);
+}
+
+.sidebar-link.active {
+  background: var(--sidebar-active-bg);
+  color: var(--chip-text);
+}
+
+.sidebar-link svg {
+  flex: 0 0 auto;
+}
+
+.dashboard-main {
   display: grid;
   gap: 24px;
-  grid-template-columns: 1fr;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .stat-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.stat-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+}
+
+.stat-card .stat-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 8px;
+}
+
+.stat-card .stat-value {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.stat-card .stat-sub {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 4px;
 }
 
 .dashboard-header {
@@ -721,8 +881,8 @@ a {
 .skill-chip {
   font-size: 12px;
   font-weight: 600;
-  color: var(--green-dark);
-  background: #e5f7ec;
+  color: var(--chip-text);
+  background: var(--chip-bg);
   padding: 5px 10px;
   border-radius: 999px;
 }
