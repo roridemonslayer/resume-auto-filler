@@ -26,13 +26,14 @@ The API is now at `http://localhost:8000`. Interactive docs at `http://localhost
 
 ## Endpoints
 
-| Method | Path             | Auth | Description                              |
-|--------|------------------|------|-------------------------------------------|
-| POST   | `/auth/signup`   | no   | Create an account                         |
-| POST   | `/auth/login`    | no   | Get a JWT access token                    |
-| POST   | `/resume/upload` | yes  | Upload a PDF, parse it, store the profile |
-| GET    | `/resume/me`     | yes  | Fetch your stored profile                 |
-| GET    | `/health`        | no   | Liveness check                            |
+| Method | Path                   | Auth | Description                                   |
+|--------|------------------------|------|------------------------------------------------|
+| POST   | `/auth/signup`         | no   | Create an account                               |
+| POST   | `/auth/login`          | no   | Get a JWT access token                          |
+| POST   | `/resume/upload`       | yes  | Upload a PDF, parse it, store the resume fields |
+| GET    | `/profile/me`          | yes  | Fetch resume fields + EEO fields, merged        |
+| PUT    | `/profile/demographics`| yes  | Set voluntary self-ID (veteran/gender/etc.)     |
+| GET    | `/health`              | no   | Liveness check                                  |
 
 Authenticated requests need `Authorization: Bearer <token>`.
 
@@ -50,6 +51,9 @@ Authenticated requests need `Authorization: Bearer <token>`.
 - CORS is wide open (`allow_origins=["*"]`) because each install of the Chrome extension has a
   different `chrome-extension://<id>` origin. Auth uses bearer tokens, not cookies, so this
   doesn't expose credentialed requests.
+- EEO/demographic fields (`app/models.py`'s `EeoProfile`) are never inferred or extracted -- they
+  only get set through an explicit `PUT /profile/demographics` call from the web app, and every
+  field is nullable so "unset" and "prefer not to say" both just mean `null`.
 
 ## Tests
 
@@ -66,5 +70,9 @@ TOKEN=$(curl -s -X POST localhost:8000/auth/login -H 'Content-Type: application/
 curl -X POST localhost:8000/resume/upload -H "Authorization: Bearer $TOKEN" \
   -F "file=@/path/to/resume.pdf;type=application/pdf"
 
-curl localhost:8000/resume/me -H "Authorization: Bearer $TOKEN"
+curl localhost:8000/profile/me -H "Authorization: Bearer $TOKEN"
+
+curl -X PUT localhost:8000/profile/demographics -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"veteran_status":"I am not a protected veteran","gender":"Female"}'
 ```
