@@ -1,9 +1,10 @@
-import type { ResumeProfile } from "./types";
+import type { FullProfile, ResumeProfile } from "./types";
 
-// Point this at your deployed backend before publishing to the Web
-// Store; defaults to the local FastAPI dev server. Must also be listed
-// in manifest.json's host_permissions.
+// Point these at your deployed backend/web app before publishing to
+// the Web Store; both default to local dev servers. API_BASE_URL must
+// also be listed in manifest.json's host_permissions.
 export const API_BASE_URL = "http://localhost:8000";
+export const WEBAPP_URL = "http://localhost:5173";
 
 async function parseErrorDetail(response: Response): Promise<string> {
   try {
@@ -53,15 +54,12 @@ export async function uploadResume(token: string, file: File): Promise<ResumePro
   return (await response.json()) as ResumeProfile;
 }
 
-export async function fetchProfile(token: string): Promise<ResumeProfile | null> {
-  const response = await fetch(`${API_BASE_URL}/resume/me`, {
+export async function fetchProfile(token: string): Promise<FullProfile> {
+  const response = await fetch(`${API_BASE_URL}/profile/me`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (response.status === 404) {
-    return null;
-  }
   if (!response.ok) {
     throw new Error(await parseErrorDetail(response));
   }
-  return (await response.json()) as ResumeProfile;
+  return (await response.json()) as FullProfile;
 }
