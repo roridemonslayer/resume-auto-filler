@@ -35,3 +35,22 @@ class ResumeProfileOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class EeoProfileIn(BaseModel):
+    veteran_status: str | None = None
+    disability_status: str | None = None
+    gender: str | None = None
+    race_ethnicity: str | None = None
+    sexual_orientation: str | None = None
+
+
+class EeoProfileOut(EeoProfileIn):
+    class Config:
+        from_attributes = True
+
+
+class FullProfileOut(BaseModel):
+    resume: ResumeProfileOut
+    eeo: EeoProfileOut
+    has_resume: bool
