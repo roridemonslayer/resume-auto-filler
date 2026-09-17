@@ -22,7 +22,7 @@ const FEATURES = [
   { icon: "\u{1F9FE}", title: "EEO questions included", body: "Veteran status, disability, gender, race/ethnicity -- entered once, filled everywhere, always optional." },
   { icon: "✅", title: "You stay in control", body: "The extension fills fields. It never clicks submit for you." },
   { icon: "\u{1F4C4}", title: "One resume, everywhere", body: "Upload once, reuse across every application without retyping a thing." },
-  { icon: "\u{1F192}", title: "Free & open source", body: "No ads, no premium tier. Read the code or contribute on GitHub." },
+  { icon: "\u{1F513}", title: "Free & open source", body: "No ads, no premium tier. Read the code or contribute on GitHub." },
 ];
 
 export default function Landing() {
