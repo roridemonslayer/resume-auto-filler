@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import Nav from "../components/Nav";
@@ -38,7 +39,12 @@ export default function Auth({ mode }: { mode: "login" | "signup" }) {
     <>
       <Nav />
       <div className="auth-shell">
-        <div className="card auth-card">
+        <motion.div
+          className="card auth-card"
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, ease: "easeOut" }}
+        >
           <h2>{isSignup ? "Create your account" : "Welcome back"}</h2>
           <p className="sub">
             {isSignup
@@ -88,7 +94,7 @@ export default function Auth({ mode }: { mode: "login" | "signup" }) {
               </>
             )}
           </p>
-        </div>
+        </motion.div>
       </div>
     </>
   );
