@@ -3,7 +3,7 @@
   "compilerOptions": {
     "module": "ES2020",
     "isolatedModules": false,
-    "rootDir": "src",
+    "rootDir": ".",
     "outDir": "dist"
   },
   "include": ["src/background/background.ts", "src/content/content-script.ts"]
