@@ -16,6 +16,9 @@
   --dark-bg: #0a130f;
   --dark-border: rgba(255, 255, 255, 0.1);
   --dark-muted: #9fb6a9;
+  --curtain-bg: #12432b;
+  --curtain-line: rgba(255, 255, 255, 0.18);
+  --curtain-muted: #bfe0cd;
 
   --amber: #f0a531;
   --danger: #d64545;
@@ -494,29 +497,19 @@ a {
   margin-bottom: 12px;
 }
 
-.steps-grid,
-.features-grid {
+.steps-grid {
   display: grid;
   gap: 20px;
-}
-
-.steps-grid {
-  grid-template-columns: repeat(3, 1fr);
-}
-
-.features-grid {
   grid-template-columns: repeat(3, 1fr);
 }
 
 @media (max-width: 860px) {
-  .steps-grid,
-  .features-grid {
+  .steps-grid {
     grid-template-columns: 1fr;
   }
 }
 
-.step-card,
-.feature-card {
+.step-card {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -536,26 +529,87 @@ a {
   margin-bottom: 14px;
 }
 
-.feature-icon {
-  font-size: 26px;
-  margin-bottom: 12px;
-}
-
-.step-card h3,
-.feature-card h3 {
+.step-card h3 {
   font-size: 16.5px;
   margin-bottom: 8px;
   letter-spacing: -0.01em;
 }
 
-.step-card p,
-.feature-card p {
+.step-card p {
   font-size: 13.5px;
 }
 
 .privacy-card {
   background: linear-gradient(135deg, #eefaf2, #f8fdf9);
   border: 1px solid #d7ecdf;
+}
+
+/* ---------- curtain section: scroll-flattened colored panel ---------- */
+
+.curtain-section {
+  background: var(--curtain-bg);
+  color: white;
+  padding: 72px 0 88px;
+  overflow: hidden;
+}
+
+.curtain-heading {
+  max-width: 480px;
+  margin-bottom: 56px;
+}
+
+.curtain-heading h2 {
+  color: white;
+  font-size: clamp(28px, 4.2vw, 38px);
+  margin-bottom: 12px;
+}
+
+.curtain-heading p {
+  color: var(--curtain-muted);
+}
+
+.curtain-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  align-items: center;
+  padding: 40px 0;
+  border-top: 1px solid var(--curtain-line);
+}
+
+.curtain-row:last-child {
+  padding-bottom: 0;
+}
+
+@media (max-width: 780px) {
+  .curtain-row {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}
+
+.curtain-row h3 {
+  color: white;
+  font-size: 22px;
+  margin-bottom: 10px;
+  max-width: 20ch;
+}
+
+.curtain-row p {
+  color: var(--curtain-muted);
+  font-size: 14.5px;
+  max-width: 40ch;
+}
+
+.curtain-diagram {
+  display: flex;
+  justify-content: center;
+}
+
+.curtain-diagram svg {
+  max-width: 260px;
+  width: 100%;
+  height: auto;
 }
 
 /* closing statement band -- honest CTA restatement, not a fake stats strip */
