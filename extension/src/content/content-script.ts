@@ -1,8 +1,8 @@
 /**
  * Content script: no imports/exports on purpose (kept as a classic
  * script, not an ES module, per tsconfig.scripts.json / manifest).
- * Duplicates the ResumeProfile shape locally rather than importing it
- * from the popup code.
+ * Duplicates the profile shape locally rather than importing it from
+ * the popup code.
  */
 
 interface ResumeProfile {
@@ -15,6 +15,20 @@ interface ResumeProfile {
   work_history: string[];
 }
 
+interface EeoProfile {
+  veteran_status: string | null;
+  disability_status: string | null;
+  gender: string | null;
+  race_ethnicity: string | null;
+  sexual_orientation: string | null;
+}
+
+interface FullProfile {
+  resume: ResumeProfile;
+  eeo: EeoProfile;
+  has_resume: boolean;
+}
+
 type ProfileKey =
   | "email"
   | "phone"
@@ -23,18 +37,36 @@ type ProfileKey =
   | "full_name"
   | "education"
   | "skills"
-  | "work_history";
+  | "work_history"
+  | "veteran_status"
+  | "disability_status"
+  | "gender"
+  | "race_ethnicity"
+  | "sexual_orientation";
 
+// Order matters: matchProfileKey returns the first match, so more
+// specific patterns (e.g. "School Name" -> education) must come before
+// the generic full_name catch-all, or "name"-containing labels for
+// other fields would get misclassified as the person's name.
 const FIELD_PATTERNS: Array<{ key: ProfileKey; patterns: RegExp[] }> = [
   { key: "email", patterns: [/e[-\s]?mail/i] },
   { key: "phone", patterns: [/phone|mobile|cell/i] },
   { key: "first_name", patterns: [/first[\s_-]?name|given[\s_-]?name|fname\b/i] },
   { key: "last_name", patterns: [/last[\s_-]?name|surname|family[\s_-]?name|lname\b/i] },
-  { key: "full_name", patterns: [/\bfull[\s_-]?name\b|^name$|\bname\b/i] },
+  { key: "veteran_status", patterns: [/veteran/i] },
+  { key: "disability_status", patterns: [/disabilit/i] },
+  { key: "sexual_orientation", patterns: [/sexual[\s_-]?orientation/i] },
+  { key: "gender", patterns: [/\bgender\b|\bsex\b(?!ual)/i] },
+  { key: "race_ethnicity", patterns: [/\brace\b|ethnicit/i] },
   { key: "education", patterns: [/education|degree|university|school/i] },
   { key: "skills", patterns: [/skills|competenc/i] },
   { key: "work_history", patterns: [/experience|employer|company|work[\s_-]?history/i] },
+  { key: "full_name", patterns: [/\bfull[\s_-]?name\b|^name$|\bname\b/i] },
 ];
+
+function normalizeText(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
 
 function getFieldSignal(el: HTMLElement): string {
   const parts: string[] = [];
@@ -54,7 +86,7 @@ function getFieldSignal(el: HTMLElement): string {
   const wrappingLabel = el.closest("label");
   if (wrappingLabel?.textContent) parts.push(wrappingLabel.textContent);
 
-  return parts.join(" ").trim();
+  return normalizeText(parts.join(" "));
 }
 
 function matchProfileKey(signal: string): ProfileKey | null {
@@ -67,24 +99,34 @@ function matchProfileKey(signal: string): ProfileKey | null {
   return null;
 }
 
-function valueForKey(key: ProfileKey, profile: ResumeProfile): string | null {
+function valueForKey(key: ProfileKey, profile: FullProfile): string | null {
   switch (key) {
     case "email":
-      return profile.email;
+      return profile.resume.email;
     case "phone":
-      return profile.phone;
+      return profile.resume.phone;
     case "first_name":
-      return profile.first_name;
+      return profile.resume.first_name;
     case "last_name":
-      return profile.last_name;
+      return profile.resume.last_name;
     case "full_name":
-      return [profile.first_name, profile.last_name].filter(Boolean).join(" ") || null;
+      return [profile.resume.first_name, profile.resume.last_name].filter(Boolean).join(" ") || null;
     case "education":
-      return profile.education[0] ?? null;
+      return profile.resume.education[0] ?? null;
     case "skills":
-      return profile.skills.length ? profile.skills.join(", ") : null;
+      return profile.resume.skills.length ? profile.resume.skills.join(", ") : null;
     case "work_history":
-      return profile.work_history[0] ?? null;
+      return profile.resume.work_history[0] ?? null;
+    case "veteran_status":
+      return profile.eeo.veteran_status;
+    case "disability_status":
+      return profile.eeo.disability_status;
+    case "gender":
+      return profile.eeo.gender;
+    case "race_ethnicity":
+      return profile.eeo.race_ethnicity;
+    case "sexual_orientation":
+      return profile.eeo.sexual_orientation;
     default:
       return null;
   }
@@ -123,7 +165,7 @@ function trySelectOption(select: HTMLSelectElement, value: string): boolean {
   return false;
 }
 
-function fillForm(profile: ResumeProfile): number {
+function fillTextAndSelectFields(profile: FullProfile): number {
   const fields = document.querySelectorAll<HTMLElement>("input, textarea, select");
   let filledCount = 0;
 
@@ -159,6 +201,89 @@ function fillForm(profile: ResumeProfile): number {
   return filledCount;
 }
 
+// EEO questions (veteran/disability/gender/race/orientation) are often
+// rendered as radio-button groups rather than text inputs or selects
+// (Workday-style forms in particular), so they need their own matching
+// path: group same-name radios, figure out what question the group is
+// asking, then click the option whose own label matches the profile
+// value.
+function getRadioGroupSignal(radios: HTMLInputElement[]): string {
+  for (const radio of radios) {
+    const fieldset = radio.closest("fieldset");
+    const legend = fieldset?.querySelector("legend");
+    if (legend?.textContent) return normalizeText(legend.textContent);
+  }
+
+  for (const radio of radios) {
+    const group = radio.closest('[role="radiogroup"], [role="group"]');
+    if (!group) continue;
+    const ariaLabel = group.getAttribute("aria-label");
+    if (ariaLabel) return normalizeText(ariaLabel);
+    const labelledBy = group.getAttribute("aria-labelledby");
+    if (labelledBy) {
+      const labelEl = document.getElementById(labelledBy);
+      if (labelEl?.textContent) return normalizeText(labelEl.textContent);
+    }
+  }
+
+  return normalizeText(radios[0].name.replace(/[-_]/g, " "));
+}
+
+function getRadioOptionLabel(radio: HTMLInputElement): string {
+  const id = radio.getAttribute("id");
+  if (id) {
+    const label = document.querySelector(`label[for="${CSS.escape(id)}"]`);
+    if (label?.textContent) return normalizeText(label.textContent);
+  }
+
+  const wrapping = radio.closest("label");
+  if (wrapping?.textContent) return normalizeText(wrapping.textContent);
+
+  const ariaLabel = radio.getAttribute("aria-label");
+  if (ariaLabel) return normalizeText(ariaLabel);
+
+  if (radio.nextSibling?.textContent) return normalizeText(radio.nextSibling.textContent);
+
+  return radio.value || "";
+}
+
+function fillRadioGroups(profile: FullProfile): number {
+  const radios = Array.from(document.querySelectorAll<HTMLInputElement>('input[type="radio"]'));
+  const groups = new Map<string, HTMLInputElement[]>();
+
+  for (const radio of radios) {
+    if (!radio.name) continue;
+    if (!groups.has(radio.name)) groups.set(radio.name, []);
+    groups.get(radio.name)!.push(radio);
+  }
+
+  let filledCount = 0;
+
+  for (const groupRadios of groups.values()) {
+    if (groupRadios.some((r) => r.checked)) continue; // don't override an existing answer
+
+    const key = matchProfileKey(getRadioGroupSignal(groupRadios));
+    if (!key) continue;
+
+    const value = valueForKey(key, profile);
+    if (!value) continue;
+
+    const lowerValue = value.toLowerCase();
+    const match = groupRadios.find((r) => getRadioOptionLabel(r).toLowerCase().includes(lowerValue));
+    if (match) {
+      match.click();
+      highlight(match.closest("label") ?? match);
+      filledCount++;
+    }
+  }
+
+  return filledCount;
+}
+
+function fillForm(profile: FullProfile): number {
+  return fillTextAndSelectFields(profile) + fillRadioGroups(profile);
+}
+
 function showToast(message: string) {
   const toast = document.createElement("div");
   toast.textContent = message;
@@ -186,8 +311,8 @@ function injectFillButton() {
 
   button.addEventListener("click", () => {
     chrome.storage.local.get(["profile"], (result) => {
-      const profile = result.profile as ResumeProfile | undefined;
-      if (!profile) {
+      const profile = result.profile as FullProfile | undefined;
+      if (!profile || !profile.has_resume) {
         showToast("Upload your resume in the extension popup first.");
         return;
       }
@@ -201,7 +326,7 @@ function injectFillButton() {
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "FILL_FORM" && message.profile) {
-    const count = fillForm(message.profile as ResumeProfile);
+    const count = fillForm(message.profile as FullProfile);
     sendResponse({ filled: count });
   }
   return true;
