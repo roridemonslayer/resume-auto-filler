@@ -1,6 +1,8 @@
-import { motion } from "framer-motion";
+import { motion, useScroll, useTransform } from "framer-motion";
+import { useRef } from "react";
 import { Link } from "react-router-dom";
 import Nav from "../components/Nav";
+import { OptionalToggleDiagram, ResumeToFieldsDiagram, ReviewSubmitDiagram } from "../components/Diagrams";
 
 const STEPS = [
   {
@@ -17,13 +19,22 @@ const STEPS = [
   },
 ];
 
-const FEATURES = [
-  { icon: "\u{1F3AF}", title: "Smart field matching", body: "Matches inputs by label, name, id, and placeholder text -- not just exact matches." },
-  { icon: "⚡", title: "Works on real ATS forms", body: "Dispatches real input events so React-driven forms (Greenhouse, Workday) actually register the fill." },
-  { icon: "\u{1F9FE}", title: "EEO questions included", body: "Veteran status, disability, gender, race/ethnicity -- entered once, filled everywhere, always optional." },
-  { icon: "✅", title: "You stay in control", body: "The extension fills fields. It never clicks submit for you." },
-  { icon: "\u{1F4C4}", title: "One resume, everywhere", body: "Upload once, reuse across every application without retyping a thing." },
-  { icon: "\u{1F513}", title: "Free & open source", body: "No ads, no premium tier. Read the code or contribute on GitHub." },
+const CURTAIN_ROWS = [
+  {
+    title: "One click, every field.",
+    body: "Matches inputs by label, name, and placeholder -- not just exact field names -- and dispatches real input events so React-driven ATS forms like Greenhouse actually register the fill.",
+    Diagram: ResumeToFieldsDiagram,
+  },
+  {
+    title: "You stay in control.",
+    body: "The extension fills fields. It never clicks submit for you -- you review every answer first, then submit it yourself.",
+    Diagram: ReviewSubmitDiagram,
+  },
+  {
+    title: "Optional means optional.",
+    body: "Veteran status, gender, race/ethnicity -- every EEO field defaults to unset. Nothing is guessed or pre-selected for you.",
+    Diagram: OptionalToggleDiagram,
+  },
 ];
 
 const fadeUp = {
@@ -31,13 +42,13 @@ const fadeUp = {
   show: { opacity: 1, y: 0 },
 };
 
-function RevealGrid({ items, className }: { items: { icon?: string; title: string; body: string }[]; className: string }) {
+function StepsGrid() {
   return (
-    <div className={className}>
-      {items.map((item, i) => (
+    <div className="steps-grid">
+      {STEPS.map((step, i) => (
         <motion.div
-          className={className === "steps-grid" ? "step-card" : "feature-card"}
-          key={item.title}
+          className="step-card"
+          key={step.title}
           initial="hidden"
           whileInView="show"
           viewport={{ once: true, margin: "-60px" }}
@@ -45,16 +56,49 @@ function RevealGrid({ items, className }: { items: { icon?: string; title: strin
           transition={{ duration: 0.45, delay: i * 0.08, ease: "easeOut" }}
           whileHover={{ y: -6, boxShadow: "0 12px 32px rgba(15,107,60,0.12)" }}
         >
-          {className === "steps-grid" ? (
-            <div className="step-number">{i + 1}</div>
-          ) : (
-            <div className="feature-icon">{item.icon}</div>
-          )}
-          <h3>{item.title}</h3>
-          <p>{item.body}</p>
+          <div className="step-number">{i + 1}</div>
+          <h3>{step.title}</h3>
+          <p>{step.body}</p>
         </motion.div>
       ))}
     </div>
+  );
+}
+
+function CurtainSection() {
+  const ref = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "start 40%"] });
+  const radius = useTransform(scrollYProgress, [0, 1], [56, 0]);
+
+  return (
+    <motion.section className="curtain-section" ref={ref} style={{ borderTopLeftRadius: radius, borderTopRightRadius: radius }}>
+      <div className="container">
+        <div className="curtain-heading">
+          <h2>What actually happens when you click Fill.</h2>
+          <p>The mechanics, not just the pitch.</p>
+        </div>
+
+        {CURTAIN_ROWS.map((row, i) => (
+          <motion.div
+            className="curtain-row"
+            key={row.title}
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, margin: "-80px" }}
+            variants={fadeUp}
+            transition={{ duration: 0.5, delay: i * 0.06, ease: "easeOut" }}
+          >
+            <div>
+              <h3>{row.title}</h3>
+              <p>{row.body}</p>
+            </div>
+            <div className="curtain-diagram">
+              <row.Diagram />
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </motion.section>
   );
 }
 
@@ -132,21 +176,13 @@ export default function Landing() {
             <h2>How it works</h2>
             <p>Three steps, then you never copy-paste your resume again.</p>
           </div>
-          <RevealGrid items={STEPS} className="steps-grid" />
+          <StepsGrid />
         </div>
       </section>
+
+      <CurtainSection />
 
       <section className="section">
-        <div className="container">
-          <div className="section-heading">
-            <h2>Everything an application asks for</h2>
-            <p>Including the parts most autofillers skip.</p>
-          </div>
-          <RevealGrid items={FEATURES} className="features-grid" />
-        </div>
-      </section>
-
-      <section className="section" style={{ paddingTop: 0 }}>
         <div className="container">
           <motion.div
             className="card privacy-card"
