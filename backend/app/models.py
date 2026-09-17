@@ -21,6 +21,9 @@ class User(Base):
     resume_profile: Mapped["ResumeProfile"] = relationship(
         back_populates="user", uselist=False, cascade="all, delete-orphan"
     )
+    eeo_profile: Mapped["EeoProfile"] = relationship(
+        back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )
 
 
 class ResumeProfile(Base):
@@ -45,3 +48,25 @@ class ResumeProfile(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
     user: Mapped["User"] = relationship(back_populates="resume_profile")
+
+
+class EeoProfile(Base):
+    """Voluntary self-identification fields some applications ask for
+    (EEO/diversity questions). These can't be extracted from a resume --
+    they're entered directly by the user in the web app, are entirely
+    optional, and default to "Prefer not to say" in the UI."""
+
+    __tablename__ = "eeo_profiles"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True, nullable=False)
+
+    veteran_status: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    disability_status: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    gender: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    race_ethnicity: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    sexual_orientation: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+
+    user: Mapped["User"] = relationship(back_populates="eeo_profile")
