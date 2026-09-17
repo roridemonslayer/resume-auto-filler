@@ -7,18 +7,22 @@ Stop copying and pasting your resume into every job application. Click once. Get
 You're applying to jobs. For the 50th time today, you're copying your name, email, phone number,
 education, and work history into forms. It's tedious, it's error-prone, and it kills momentum.
 
-Resume Auto-Filler fixes this: create an account, upload your resume PDF once, and whenever you
-hit a job application, click one button to fill every field it can recognize. You review the
-filled fields and hit submit yourself.
+Resume Auto-Filler fixes this: create an account on the web app, upload your resume PDF once, and
+whenever you hit a job application, click one button in the extension to fill every field it can
+recognize -- including the EEO/voluntary self-identification questions (veteran status, gender,
+race/ethnicity) most autofillers skip. You review the filled fields and hit submit yourself.
 
 ## How it works
 
-1. **Create an account and upload your resume** (via the extension popup). The backend parses
-   your PDF and extracts structured fields -- name, email, phone, education, skills, work
-   history.
-2. **Open a job application page.** A green "Fill Application" button appears in the corner.
-3. **Click it.** Matching fields fill in and briefly highlight. **You review and submit the
-   application yourself** -- the extension never submits anything on your behalf.
+1. **On the web app**, create an account and upload your resume PDF. The backend parses it into
+   structured fields -- name, email, phone, education, skills, work history. Optionally fill in
+   voluntary EEO info too (every field defaults to unset/"prefer not to say").
+2. **Install the extension** and log into the same account. It reads that profile -- it doesn't
+   have its own separate onboarding.
+3. **Open a job application page.** A green "Fill Application" button appears in the corner.
+4. **Click it.** Matching text fields, dropdowns, and radio-button EEO questions fill in and
+   briefly highlight. **You review and submit the application yourself** -- the extension never
+   submits anything on your behalf.
 
 ## Data & privacy
 
@@ -42,6 +46,9 @@ is no longer accurate now that the project supports accounts. Here's what's actu
 
 - Smart field matching by input name/id/placeholder/label text -- email, phone, name, education,
   skills, work history
+- EEO/voluntary self-identification support -- veteran status, disability status, gender,
+  race/ethnicity, sexual orientation -- entered once in the web app, filled via both `<select>`
+  dropdowns and radio-button groups (Workday-style forms use radios, not selects)
 - One-click filling on most job sites, including forms built with frameworks like React
   (Greenhouse-style forms), by dispatching real input events
 - PDF parsing on upload (name, contact info, education, skills, a basic work-history section)
@@ -73,23 +80,25 @@ is no longer accurate now that the project supports accounts. Here's what's actu
 
 ```
 backend/     FastAPI backend: accounts, JWT auth, resume upload + parsing, profile storage
-extension/   Chrome extension (Manifest V3): React popup + TypeScript content script
+webapp/      React web app: landing page, auth, resume upload, EEO info -- the primary product
+extension/   Chrome extension (Manifest V3): thin popup + TypeScript content script (fills only)
 ```
 
-See [`backend/DEV.md`](backend/DEV.md) and [`extension/DEV.md`](extension/DEV.md) for setup.
+See [`backend/DEV.md`](backend/DEV.md), [`webapp/DEV.md`](webapp/DEV.md), and
+[`extension/DEV.md`](extension/DEV.md) for setup.
 
 ## Installation (development)
 
 **Chrome Web Store listing:** not yet submitted.
 
-**Load unpacked (current option):**
-
 1. Set up and run the backend -- see [`backend/DEV.md`](backend/DEV.md).
-2. Build the extension -- see [`extension/DEV.md`](extension/DEV.md). This produces an
+2. Run the web app -- see [`webapp/DEV.md`](webapp/DEV.md). Sign up, upload a resume PDF, and
+   optionally fill in the voluntary EEO info.
+3. Build the extension -- see [`extension/DEV.md`](extension/DEV.md). This produces an
    `extension/dist/` folder.
-3. Go to `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, and select
+4. Go to `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, and select
    `extension/dist`.
-4. Click the extension icon, sign up, and upload a resume PDF.
+5. Click the extension icon and log in with the same account you signed up with on the web app.
 
 ## FAQ
 
@@ -102,6 +111,11 @@ site's own submit button.
 **What if a form doesn't fill completely?** Some sites use custom fields or React components this
 version doesn't recognize yet. Fill those manually and open a GitHub issue so we can improve
 matching.
+
+**Do I have to answer the EEO/demographic questions?** No. Every field (veteran status,
+disability, gender, race/ethnicity, sexual orientation) is unset by default and stays that way
+until you explicitly set it in the web app dashboard -- the extension never guesses or infers
+these.
 
 **Can I use multiple resumes?** Not yet -- on the roadmap.
 
