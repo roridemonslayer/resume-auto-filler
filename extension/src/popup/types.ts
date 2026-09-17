@@ -8,7 +8,16 @@ export interface ResumeProfile {
   work_history: string[];
 }
 
-export interface StoredSession {
-  token: string | null;
-  profile: ResumeProfile | null;
+export interface EeoProfile {
+  veteran_status: string | null;
+  disability_status: string | null;
+  gender: string | null;
+  race_ethnicity: string | null;
+  sexual_orientation: string | null;
+}
+
+export interface FullProfile {
+  resume: ResumeProfile;
+  eeo: EeoProfile;
+  has_resume: boolean;
 }
