@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import Nav from "../components/Nav";
 import { useAuth } from "../context/AuthContext";
@@ -9,6 +10,14 @@ function initials(first: string | null, last: string | null): string {
   const a = first?.[0] ?? "";
   const b = last?.[0] ?? "";
   return (a + b).toUpperCase() || "?";
+}
+
+function cardMotion(index: number) {
+  return {
+    initial: { opacity: 0, y: 16 },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: 0.35, delay: index * 0.08, ease: "easeOut" as const },
+  };
 }
 
 export default function Dashboard() {
@@ -76,7 +85,7 @@ export default function Dashboard() {
           <h1>Your profile</h1>
         </div>
 
-        <div className="card">
+        <motion.div className="card" {...cardMotion(0)}>
           <div className="card-heading">
             <h2>Resume</h2>
           </div>
@@ -117,9 +126,9 @@ export default function Dashboard() {
 
           {uploadError && <div className="alert alert-error">{uploadError}</div>}
           {uploadStatus && <div className="alert alert-success">{uploadStatus}</div>}
-        </div>
+        </motion.div>
 
-        <div className="card">
+        <motion.div className="card" {...cardMotion(1)}>
           <div className="card-heading">
             <h2>Voluntary identity information</h2>
             <span className="badge">Optional</span>
@@ -164,9 +173,9 @@ export default function Dashboard() {
               {savingDemographics ? "Saving..." : "Save"}
             </button>
           </form>
-        </div>
+        </motion.div>
 
-        <div className="card">
+        <motion.div className="card" {...cardMotion(2)}>
           <div className="card-heading">
             <h2>Install the extension</h2>
           </div>
@@ -182,7 +191,7 @@ export default function Dashboard() {
           >
             Installation instructions →
           </a>
-        </div>
+        </motion.div>
       </div>
     </>
   );
