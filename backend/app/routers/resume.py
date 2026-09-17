@@ -14,7 +14,7 @@ router = APIRouter(prefix="/resume", tags=["resume"])
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
 
 
-def _profile_to_schema(profile: ResumeProfile) -> ResumeProfileOut:
+def resume_profile_to_schema(profile: ResumeProfile) -> ResumeProfileOut:
     return ResumeProfileOut(
         first_name=profile.first_name,
         last_name=profile.last_name,
@@ -65,14 +65,4 @@ async def upload_resume(
     db.commit()
     db.refresh(profile)
 
-    return _profile_to_schema(profile)
-
-
-@router.get("/me", response_model=ResumeProfileOut)
-def get_my_resume(current_user: User = Depends(get_current_user)):
-    if current_user.resume_profile is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No resume uploaded yet",
-        )
-    return _profile_to_schema(current_user.resume_profile)
+    return resume_profile_to_schema(profile)
