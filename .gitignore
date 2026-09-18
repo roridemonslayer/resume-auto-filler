@@ -11,6 +11,9 @@ backend/.env
 backend/*.db
 backend/*.sqlite3
 
+# Webapp env
+webapp/.env
+
 # Node / frontend
 node_modules/
 extension/dist/
