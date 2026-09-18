@@ -52,11 +52,11 @@ export function ReviewSubmitDiagram() {
       <text x="202" y="72" textAnchor="middle" fill="white" fontSize="12" fontFamily="inherit" fontWeight="700">
         Submit
       </text>
-      <circle cx="236" cy="58" r="4" fill="white" opacity="0.9" />
-      <path d="M236 58 L230 64" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
-      <text x="202" y="102" textAnchor="middle" fontSize="10" fill={strokeDim}>
+      <text x="188" y="104" textAnchor="middle" fontSize="10" fill={strokeDim}>
         you click
       </text>
+      <circle cx="222" cy="100" r="4" fill="white" opacity="0.9" />
+      <path d="M222 100 L216 106" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   );
 }
