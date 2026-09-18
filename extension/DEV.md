@@ -48,10 +48,13 @@ built extension to test the full auth/upload/fill flow.
   filling on the active tab. Talks to the backend directly via `fetch` (see `src/popup/api.ts`);
   `API_BASE_URL` there defaults to `http://localhost:8000` and needs updating (plus a matching
   entry in `public/manifest.json`'s `host_permissions`) before pointing at a deployed backend.
-- `src/content/content-script.ts` -- injected into every page. Matches `input`/`textarea`/`select`
-  elements against the user's profile using name/id/placeholder/label-text heuristics, and fills
-  them via the native property setter (not just `.value =`) so frameworks like React that back
-  many ATS forms (e.g. Greenhouse) actually register the change.
+- `src/content/content-script.ts` -- runs on every page (manifest `matches: <all_urls>`), but only
+  shows the "Fill Application" button once the page has 3+ fields it recognizes (`countMatchableFields`
+  / `pageLooksLikeJobApplication`) -- a debounced `MutationObserver` re-checks as the DOM changes,
+  since many ATS platforms render their fields client-side after the initial load. Matches
+  `input`/`textarea`/`select` elements against the user's profile using name/id/placeholder/label-text
+  heuristics, and fills them via the native property setter (not just `.value =`) so frameworks like
+  React that back many ATS forms (e.g. Greenhouse) actually register the change.
 - `src/background/background.ts` -- currently minimal; the natural home for keyboard-shortcut
   (`chrome.commands`) support from the roadmap.
 - `background.ts` and `content-script.ts` are deliberately import/export-free and compiled by a
