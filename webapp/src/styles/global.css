@@ -666,6 +666,31 @@ a {
   height: auto;
 }
 
+.flow-line {
+  animation: dash-flow 1s linear infinite;
+}
+
+@keyframes dash-flow {
+  to {
+    stroke-dashoffset: -14;
+  }
+}
+
+.toggle-knob {
+  animation: knob-pulse 2.2s ease-in-out infinite;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+
+@keyframes knob-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.88);
+  }
+}
+
 /* closing statement band -- honest CTA restatement, not a fake stats strip */
 
 .statement-band {

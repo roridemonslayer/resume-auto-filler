@@ -16,6 +16,7 @@ export function ResumeToFieldsDiagram() {
       {[30, 65, 100].map((y, i) => (
         <path
           key={y}
+          className="flow-line"
           d={`M92,${45 + i * 4} C120,${45 + i * 4} 120,${y} 148,${y}`}
           stroke={strokeDim}
           strokeWidth="1.25"
@@ -44,7 +45,7 @@ export function ReviewSubmitDiagram() {
       <path d="M26 68 l4 4 l8 -8" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M26 102 l4 4 l8 -8" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
 
-      <path d="M118 68 L150 68" stroke={strokeDim} strokeWidth="1.5" strokeDasharray="3 4" />
+      <path className="flow-line" d="M118 68 L150 68" stroke={strokeDim} strokeWidth="1.5" strokeDasharray="3 4" />
       <path d="M144 62 L150 68 L144 74" stroke={strokeDim} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
 
       <rect x="160" y="52" width="84" height="32" rx="8" stroke="white" strokeWidth="1.75" />
@@ -65,7 +66,7 @@ export function OptionalToggleDiagram() {
   return (
     <svg viewBox="0 0 260 150" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect x="20" y="30" width="64" height="30" rx="15" stroke={stroke} strokeWidth="1.5" fill={fillSoft} />
-      <circle cx="36" cy="45" r="10" fill="white" />
+      <circle className="toggle-knob" cx="36" cy="45" r="10" fill="white" />
       <text x="52" y="80" fontSize="12" fill="white" fontWeight="700">
         Not set
       </text>
