@@ -1,8 +1,10 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
 
 export default function Nav() {
   const { token, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <div className="nav">
@@ -27,6 +29,14 @@ export default function Nav() {
               </Link>
             </>
           )}
+          <button
+            className="theme-toggle"
+            onClick={toggleTheme}
+            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {theme === "dark" ? "☀️" : "🌙"}
+          </button>
         </div>
       </div>
     </div>
