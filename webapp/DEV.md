@@ -13,6 +13,25 @@ npm install
 
 The backend must be running first -- see [`../backend/DEV.md`](../backend/DEV.md).
 
+### Enabling "Sign in with Google" (optional)
+
+The Google button just doesn't render until this is set up -- everything else works without it.
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/) and create a project (or pick
+   an existing one).
+2. **APIs & Services → OAuth consent screen**: choose "External", fill in the required fields
+   (app name, your email), and save. You don't need to submit it for verification for local dev.
+3. **APIs & Services → Credentials → Create Credentials → OAuth client ID**.
+   - Application type: **Web application**
+   - **Authorized JavaScript origins**: add `http://localhost:5173` (and your deployed webapp URL
+     later)
+   - Leave "Authorized redirect URIs" empty -- this flow doesn't use redirects.
+4. Copy the **Client ID** it gives you (looks like `123-abc.apps.googleusercontent.com`).
+5. Put it in **both**:
+   - `webapp/.env`: `VITE_GOOGLE_CLIENT_ID=<that value>`
+   - `backend/.env`: `GOOGLE_CLIENT_ID=<the same value>`
+6. Restart both `npm run dev` and the backend so the env vars are picked up.
+
 ## Run
 
 ```bash
@@ -51,3 +70,8 @@ Type-checks then builds to `dist/`, deployable as a static site (Vercel, Netlify
   versus just not answering it at all).
 - The landing hero's browser-window graphic (`.mock-browser` in `src/styles/global.css`) is pure
   CSS, not a screenshot -- keeps the bundle small and never goes stale when the actual UI changes.
+- `src/components/GoogleSignInButton.tsx` reads `VITE_GOOGLE_CLIENT_ID` and renders nothing if it's
+  unset, rather than a broken button -- see the setup steps above.
+- A signup (email/password or Google) sets a `sessionStorage` flag that shows a one-time "Account
+  created" banner on the dashboard (`Dashboard.tsx`'s `showWelcome` state) -- no backend involved,
+  works with zero setup.
