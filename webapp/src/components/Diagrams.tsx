@@ -52,9 +52,9 @@ export function ReviewSubmitDiagram() {
       <text x="202" y="72" textAnchor="middle" fill="white" fontSize="12" fontFamily="inherit" fontWeight="700">
         Submit
       </text>
-      <circle cx="228" cy="96" r="5" fill="white" opacity="0.9" />
-      <path d="M228 96 L221 104" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
-      <text x="196" y="112" fontSize="10" fill={strokeDim}>
+      <circle cx="236" cy="58" r="4" fill="white" opacity="0.9" />
+      <path d="M236 58 L230 64" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+      <text x="202" y="102" textAnchor="middle" fontSize="10" fill={strokeDim}>
         you click
       </text>
     </svg>
@@ -74,14 +74,17 @@ export function OptionalToggleDiagram() {
         won't be filled
       </text>
 
-      <rect x="150" y="30" width="94" height="28" rx="14" stroke={stroke} strokeWidth="1.5" />
-      <text x="197" y="49" textAnchor="middle" fontSize="10.5" fill="white">
-        I don't wish to answer
+      <rect x="140" y="26" width="116" height="40" rx="18" stroke={stroke} strokeWidth="1.5" />
+      <text x="198" y="42" textAnchor="middle" fontSize="10" fill="white">
+        I don't wish
       </text>
-      <text x="150" y="80" fontSize="11" fill={strokeDim}>
+      <text x="198" y="56" textAnchor="middle" fontSize="10" fill="white">
+        to answer
+      </text>
+      <text x="140" y="84" fontSize="11" fill={strokeDim}>
         chosen deliberately,
       </text>
-      <text x="150" y="94" fontSize="11" fill={strokeDim}>
+      <text x="140" y="98" fontSize="11" fill={strokeDim}>
         not guessed for you
       </text>
     </svg>
