@@ -24,6 +24,14 @@ class Token(BaseModel):
     token_type: str = "bearer"
 
 
+class GoogleAuthIn(BaseModel):
+    credential: str
+
+
+class GoogleAuthOut(Token):
+    is_new_user: bool
+
+
 class ResumeProfileOut(BaseModel):
     first_name: str | None = None
     last_name: str | None = None
