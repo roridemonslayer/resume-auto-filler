@@ -28,26 +28,47 @@ function cardMotion(index: number) {
   };
 }
 
+const SCROLLSPY_TOP_OFFSET = 100;
+
 function useActiveSection(ids: string[]): string {
   const [active, setActive] = useState(ids[0]);
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries.filter((e) => e.isIntersecting);
-        if (visible.length > 0) {
-          setActive(visible[0].target.id);
+    // IntersectionObserver's callback only reports entries whose state
+    // just changed, not every currently-observed target -- so a batch
+    // can report an unrelated section exiting while giving no signal
+    // about the section that's actually now on screen, leaving `active`
+    // stuck. Measuring directly on scroll avoids that entirely: walk
+    // the sections in order and keep whichever one's top has most
+    // recently crossed the tracking line -- that's the one we're "in".
+    function computeActive() {
+      let current = ids[0];
+      for (const id of ids) {
+        const el = document.getElementById(id);
+        if (el && el.getBoundingClientRect().top - SCROLLSPY_TOP_OFFSET <= 0) {
+          current = id;
         }
-      },
-      { rootMargin: "-100px 0px -60% 0px" },
-    );
-
-    for (const id of ids) {
-      const el = document.getElementById(id);
-      if (el) observer.observe(el);
+      }
+      setActive(current);
     }
 
-    return () => observer.disconnect();
+    let ticking = false;
+    function onScroll() {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        computeActive();
+        ticking = false;
+      });
+    }
+
+    computeActive();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ids.join(",")]);
 
@@ -141,25 +162,27 @@ export default function Dashboard() {
         </nav>
 
         <div className="dashboard-main">
-          <div id="overview" className="dashboard-header">
-            <h1>Your profile</h1>
-          </div>
+          <div id="overview">
+            <div className="dashboard-header">
+              <h1>Your profile</h1>
+            </div>
 
-          <div className="stat-grid">
-            <div className="stat-card">
-              <div className="stat-label">Skills detected</div>
-              <div className="stat-value">{resume?.skills.length ?? 0}</div>
-              <div className="stat-sub">from your uploaded resume</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-label">Profile completeness</div>
-              <div className="stat-value">{profile?.has_resume ? `${profileCompleteness}%` : "--"}</div>
-              <div className="stat-sub">name, email, phone on file</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-label">Voluntary info set</div>
-              <div className="stat-value">{eeoSetCount}/5</div>
-              <div className="stat-sub">EEO fields answered</div>
+            <div className="stat-grid">
+              <div className="stat-card">
+                <div className="stat-label">Skills detected</div>
+                <div className="stat-value">{resume?.skills.length ?? 0}</div>
+                <div className="stat-sub">from your uploaded resume</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-label">Profile completeness</div>
+                <div className="stat-value">{profile?.has_resume ? `${profileCompleteness}%` : "--"}</div>
+                <div className="stat-sub">name, email, phone on file</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-label">Voluntary info set</div>
+                <div className="stat-value">{eeoSetCount}/5</div>
+                <div className="stat-sub">EEO fields answered</div>
+              </div>
             </div>
           </div>
 

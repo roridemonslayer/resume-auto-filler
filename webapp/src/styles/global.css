@@ -795,6 +795,12 @@ a {
 .dashboard-main {
   display: grid;
   gap: 24px;
+  /* Guarantees enough scroll room for the last section's top to reach
+     the scrollspy's tracking line through normal scrolling on any
+     realistic viewport height, rather than special-casing "at the
+     bottom of the page" (which produces false positives when an
+     earlier, taller section still dominates the viewport there). */
+  padding-bottom: 600px;
 }
 
 .stat-grid {
