@@ -296,6 +296,46 @@ function showToast(message: string) {
   setTimeout(() => toast.remove(), 2500);
 }
 
+// Only show the button on pages that actually look like a job
+// application -- otherwise it would appear on every single page the
+// user visits, which is noisy and reveals the extension is running
+// everywhere. "Looks like a job application" is approximated as
+// "has several fields we know how to fill", not a fixed page list,
+// since ATS platforms and custom career sites vary too much for a URL
+// or keyword allowlist to hold up.
+const JOB_FORM_FIELD_THRESHOLD = 3;
+
+function countMatchableFields(): number {
+  const fields = document.querySelectorAll<HTMLElement>("input, textarea, select");
+  let count = 0;
+
+  fields.forEach((field) => {
+    const tag = field.tagName.toLowerCase();
+    if (tag === "input") {
+      const type = (field as HTMLInputElement).type;
+      if (["hidden", "submit", "button", "file"].includes(type)) return;
+    }
+    if (matchProfileKey(getFieldSignal(field))) count++;
+  });
+
+  const radios = document.querySelectorAll<HTMLInputElement>('input[type="radio"]');
+  const groupedRadios = new Map<string, HTMLInputElement[]>();
+  radios.forEach((radio) => {
+    if (!radio.name) return;
+    if (!groupedRadios.has(radio.name)) groupedRadios.set(radio.name, []);
+    groupedRadios.get(radio.name)!.push(radio);
+  });
+  groupedRadios.forEach((group) => {
+    if (matchProfileKey(getRadioGroupSignal(group))) count++;
+  });
+
+  return count;
+}
+
+function pageLooksLikeJobApplication(): boolean {
+  return countMatchableFields() >= JOB_FORM_FIELD_THRESHOLD;
+}
+
 function injectFillButton() {
   if (document.getElementById("resume-autofiller-button")) return;
 
@@ -332,8 +372,37 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return true;
 });
 
+// Many ATS platforms render their form fields client-side after the
+// initial page load, so a single check at document_idle can run
+// before the fields exist. Re-check on DOM mutations (debounced, and
+// stopped once the button is showing) instead of polling forever.
+let scanScheduled = false;
+
+function scheduleScan() {
+  if (scanScheduled || document.getElementById("resume-autofiller-button")) return;
+  scanScheduled = true;
+  setTimeout(() => {
+    scanScheduled = false;
+    if (!document.getElementById("resume-autofiller-button") && pageLooksLikeJobApplication()) {
+      injectFillButton();
+    }
+  }, 400);
+}
+
+function startWatching() {
+  scheduleScan();
+  const observer = new MutationObserver(() => {
+    if (document.getElementById("resume-autofiller-button")) {
+      observer.disconnect();
+      return;
+    }
+    scheduleScan();
+  });
+  observer.observe(document.documentElement, { childList: true, subtree: true });
+}
+
 if (document.body) {
-  injectFillButton();
+  startWatching();
 } else {
-  document.addEventListener("DOMContentLoaded", injectFillButton);
+  document.addEventListener("DOMContentLoaded", startWatching);
 }
