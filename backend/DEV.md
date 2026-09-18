@@ -15,6 +15,23 @@ cp .env.example .env
 python3 -c "import secrets; print(secrets.token_hex(32))"
 ```
 
+### Enabling the welcome email (optional)
+
+Signup works fine without this -- it just skips sending an email (logged, not an error).
+
+1. Sign up at [resend.com](https://resend.com) (free tier is enough for dev).
+2. **API Keys → Create API Key**, copy it.
+3. Put it in `backend/.env`: `RESEND_API_KEY=<that value>`.
+4. `EMAIL_FROM` defaults to Resend's shared test sender (`onboarding@resend.dev`), which only
+   delivers to the email address you signed up to Resend with. To send to arbitrary addresses,
+   verify your own domain in Resend (**Domains** tab) and set `EMAIL_FROM` to an address at that
+   domain.
+
+### Enabling Google sign-in (optional)
+
+See [`../webapp/DEV.md`](../webapp/DEV.md#enabling-sign-in-with-google-optional) -- same
+`GOOGLE_CLIENT_ID` value goes in both `backend/.env` and `webapp/.env`.
+
 ## Run
 
 ```bash
@@ -28,8 +45,9 @@ The API is now at `http://localhost:8000`. Interactive docs at `http://localhost
 
 | Method | Path                   | Auth | Description                                   |
 |--------|------------------------|------|------------------------------------------------|
-| POST   | `/auth/signup`         | no   | Create an account                               |
+| POST   | `/auth/signup`         | no   | Create an account, sends a welcome email        |
 | POST   | `/auth/login`          | no   | Get a JWT access token                          |
+| POST   | `/auth/google`         | no   | Sign in/up with a Google ID token credential     |
 | POST   | `/resume/upload`       | yes  | Upload a PDF, parse it, store the resume fields |
 | GET    | `/profile/me`          | yes  | Fetch resume fields + EEO fields, merged        |
 | PUT    | `/profile/demographics`| yes  | Set voluntary self-ID (veteran/gender/etc.)     |
@@ -54,6 +72,13 @@ Authenticated requests need `Authorization: Bearer <token>`.
 - EEO/demographic fields (`app/models.py`'s `EeoProfile`) are never inferred or extracted -- they
   only get set through an explicit `PUT /profile/demographics` call from the web app, and every
   field is nullable so "unset" and "prefer not to say" both just mean `null`.
+- `app/email.py` and `app/google_oauth.py` both degrade gracefully when unconfigured: signup
+  succeeds either way (email is fire-and-forget), and `/auth/google` returns a clean 501 instead
+  of crashing if `GOOGLE_CLIENT_ID` isn't set.
+- A Google-only account gets a random, never-used password hash (see `routers/auth.py`) so the
+  `User` model doesn't need a nullable password column just for this.
+- `google-auth`'s default requests transport needs the `requests` package installed separately --
+  it's not pulled in automatically, hence the explicit `requests==2.32.3` pin.
 
 ## Tests
 
