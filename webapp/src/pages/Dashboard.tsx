@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { animate, motion, useMotionValue, useTransform } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import Nav from "../components/Nav";
 import { DocumentIcon, IdBadgeIcon, OverviewIcon, PuzzleIcon } from "../components/Icons";
@@ -25,7 +25,21 @@ function cardMotion(index: number) {
     initial: { opacity: 0, y: 16 },
     animate: { opacity: 1, y: 0 },
     transition: { duration: 0.35, delay: index * 0.08, ease: "easeOut" as const },
+    whileHover: { y: -3, boxShadow: "0 12px 28px rgba(15,107,60,0.12)" },
   };
+}
+
+function CountUp({ value, suffix = "" }: { value: number; suffix?: string }) {
+  const count = useMotionValue(0);
+  const display = useTransform(count, (v) => `${Math.round(v)}${suffix}`);
+
+  useEffect(() => {
+    const controls = animate(count, value, { duration: 0.7, ease: "easeOut" });
+    return controls.stop;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  return <motion.span>{display}</motion.span>;
 }
 
 const SCROLLSPY_TOP_OFFSET = 100;
@@ -149,16 +163,28 @@ export default function Dashboard() {
       <Nav />
       <div className="container app-shell">
         <nav className="sidebar">
-          {SECTIONS.map(({ id, label, Icon }) => (
-            <button
-              key={id}
-              className={`sidebar-link${activeSection === id ? " active" : ""}`}
-              onClick={() => scrollToSection(id)}
-            >
-              <Icon />
-              {label}
-            </button>
-          ))}
+          {SECTIONS.map(({ id, label, Icon }) => {
+            const isActive = activeSection === id;
+            return (
+              <button
+                key={id}
+                className={`sidebar-link${isActive ? " active" : ""}`}
+                onClick={() => scrollToSection(id)}
+              >
+                {isActive && (
+                  <motion.div
+                    layoutId="sidebar-pill"
+                    className="sidebar-pill"
+                    transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                  />
+                )}
+                <span className="sidebar-link-content">
+                  <Icon />
+                  {label}
+                </span>
+              </button>
+            );
+          })}
         </nav>
 
         <div className="dashboard-main">
@@ -168,21 +194,27 @@ export default function Dashboard() {
             </div>
 
             <div className="stat-grid">
-              <div className="stat-card">
+              <motion.div className="stat-card" whileHover={{ y: -3, boxShadow: "0 12px 28px rgba(15,107,60,0.12)" }}>
                 <div className="stat-label">Skills detected</div>
-                <div className="stat-value">{resume?.skills.length ?? 0}</div>
+                <div className="stat-value">
+                  <CountUp value={resume?.skills.length ?? 0} />
+                </div>
                 <div className="stat-sub">from your uploaded resume</div>
-              </div>
-              <div className="stat-card">
+              </motion.div>
+              <motion.div className="stat-card" whileHover={{ y: -3, boxShadow: "0 12px 28px rgba(15,107,60,0.12)" }}>
                 <div className="stat-label">Profile completeness</div>
-                <div className="stat-value">{profile?.has_resume ? `${profileCompleteness}%` : "--"}</div>
+                <div className="stat-value">
+                  {profile?.has_resume ? <CountUp value={profileCompleteness} suffix="%" /> : "--"}
+                </div>
                 <div className="stat-sub">name, email, phone on file</div>
-              </div>
-              <div className="stat-card">
+              </motion.div>
+              <motion.div className="stat-card" whileHover={{ y: -3, boxShadow: "0 12px 28px rgba(15,107,60,0.12)" }}>
                 <div className="stat-label">Voluntary info set</div>
-                <div className="stat-value">{eeoSetCount}/5</div>
+                <div className="stat-value">
+                  <CountUp value={eeoSetCount} suffix="/5" />
+                </div>
                 <div className="stat-sub">EEO fields answered</div>
-              </div>
+              </motion.div>
             </div>
           </div>
 
