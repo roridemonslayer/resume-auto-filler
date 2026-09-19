@@ -69,6 +69,48 @@ def create_application(
     return application
 
 
+@router.post("/submitted", response_model=ApplicationOut)
+def mark_submitted(
+    payload: ApplicationCreate,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Called by the extension once it has seen a submission confirmation.
+    Promotes a "filled" row to "applied" (never downgrades a row that has
+    already moved on to interviewing/offer/rejected), or creates the row
+    as "applied" if the user submitted without using Fill."""
+    existing = None
+    if payload.url:
+        existing = (
+            db.query(Application)
+            .filter(Application.user_id == current_user.id, Application.url == payload.url)
+            .first()
+        )
+
+    if existing is not None:
+        if existing.status == "filled":
+            existing.status = "applied"
+        existing.updated_at = utcnow()
+        db.commit()
+        db.refresh(existing)
+        return existing
+
+    application = Application(
+        user_id=current_user.id,
+        company=payload.company,
+        role=payload.role,
+        url=payload.url,
+        status="applied",
+        notes=payload.notes,
+    )
+    db.add(application)
+    db.commit()
+    db.refresh(application)
+    response.status_code = status.HTTP_201_CREATED
+    return application
+
+
 @router.patch("/{application_id}", response_model=ApplicationOut)
 def update_application(
     application_id: int,

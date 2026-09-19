@@ -54,6 +54,7 @@ The API is now at `http://localhost:8000`. Interactive docs at `http://localhost
 | PUT    | `/profile/resume`      | yes  | Replace the editable resume fields (name, contact, education, experience, skills) |
 | GET    | `/applications`        | yes  | List the user's tracked applications, newest first |
 | POST   | `/applications`        | yes  | Track an application; re-posting the same `url` bumps the existing row instead of duplicating it |
+| POST   | `/applications/submitted` | yes | Extension saw a submission confirmation: promotes the matching `filled` row to `applied` (never downgrades interviewing/offer/rejected), or creates it as `applied` |
 | PATCH  | `/applications/{id}`   | yes  | Update company/role/url/status/notes             |
 | DELETE | `/applications/{id}`   | yes  | Remove an application                            |
 | GET    | `/health`              | no   | Liveness check                                  |
