@@ -61,10 +61,17 @@ class EeoProfileOut(EeoProfileIn):
         from_attributes = True
 
 
+class ResumeFileInfo(BaseModel):
+    name: str
+    size: int
+    updated_at: datetime
+
+
 class FullProfileOut(BaseModel):
     resume: ResumeProfileOut
     eeo: EeoProfileOut
     has_resume: bool
+    resume_file: ResumeFileInfo | None = None
 
 
 def _clean_str(value: str | None) -> str | None:

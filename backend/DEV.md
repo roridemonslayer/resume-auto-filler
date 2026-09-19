@@ -51,6 +51,8 @@ The API is now at `http://localhost:8000`. Interactive docs at `http://localhost
 | POST   | `/resume/upload`       | yes  | Upload a PDF, parse it, store the resume fields |
 | GET    | `/profile/me`          | yes  | Fetch resume fields + EEO fields, merged        |
 | PUT    | `/profile/demographics`| yes  | Set voluntary self-ID (veteran/gender/etc.)     |
+| GET    | `/resume/file`         | yes  | Download the stored original PDF (only ever your own) |
+| DELETE | `/resume/file`         | yes  | Delete the stored PDF (parsed fields are kept)   |
 | PUT    | `/profile/resume`      | yes  | Replace the editable resume fields (name, contact, education, experience, skills) |
 | GET    | `/applications`        | yes  | List the user's tracked applications, newest first |
 | POST   | `/applications`        | yes  | Track an application; re-posting the same `url` bumps the existing row instead of duplicating it |
@@ -93,6 +95,14 @@ Authenticated requests need `Authorization: Bearer <token>`.
   extension logs new fills as `filled`; the web app's manual add uses `applied`. `url` must start
   with `http://` or `https://` (the web app renders it as a link, so `javascript:` URLs are
   rejected). Timestamps are naive UTC -- clients must treat them as UTC.
+
+- `POST /resume/upload` now also stores the original PDF (one row per user in `resume_files`,
+  replaced on re-upload) so the extension can attach it to application forms. Non-PDFs are
+  rejected by magic bytes (`%PDF-`), not just the declared content type, because the file is
+  served back; filenames are reduced to a safe base name. `GET /resume/file` always answers as
+  `application/pdf` + `attachment` + `nosniff`. `/profile/me` reports `resume_file` (name/size)
+  without the bytes. Files are stored unencrypted in the DB -- fine for local dev, not for
+  production.
 
 ## Tests
 

@@ -6,7 +6,14 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import EeoProfile, ResumeProfile, User
 from app.routers.resume import resume_profile_to_schema
-from app.schemas import EeoProfileIn, EeoProfileOut, FullProfileOut, ResumeProfileIn, ResumeProfileOut
+from app.schemas import (
+    EeoProfileIn,
+    EeoProfileOut,
+    FullProfileOut,
+    ResumeFileInfo,
+    ResumeProfileIn,
+    ResumeProfileOut,
+)
 from app.deps import get_current_user
 
 router = APIRouter(prefix="/profile", tags=["profile"])
@@ -24,10 +31,16 @@ def get_my_profile(current_user: User = Depends(get_current_user)):
         if current_user.eeo_profile
         else EeoProfileOut()
     )
+    stored = current_user.resume_file
     return FullProfileOut(
         resume=resume,
         eeo=eeo,
         has_resume=current_user.resume_profile is not None,
+        resume_file=(
+            ResumeFileInfo(name=stored.filename, size=stored.size, updated_at=stored.updated_at)
+            if stored
+            else None
+        ),
     )
 
 

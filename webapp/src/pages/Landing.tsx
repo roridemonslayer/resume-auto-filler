@@ -274,9 +274,9 @@ export default function Landing() {
             <h2>Where your data actually goes.</h2>
             <div>
               <p>
-                Your resume PDF is uploaded over HTTPS, parsed in memory, and discarded -- the raw
-                file is never stored. What we keep is the structured fields extracted from it, plus
-                any EEO info you choose to enter, so you don't have to re-upload every time.
+                Your resume PDF is uploaded over HTTPS and parsed. We keep the PDF itself so the
+                extension can attach it to applications for you, along with the fields extracted
+                from it and any EEO info you choose to enter. You can delete the file any time.
               </p>
               <p>
                 Filling itself happens entirely in your browser: the extension reads your stored

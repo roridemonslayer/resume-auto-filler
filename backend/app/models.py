@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, ForeignKey, Integer, LargeBinary, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -27,11 +27,14 @@ class User(Base):
     applications: Mapped[list["Application"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    resume_file: Mapped["ResumeFile"] = relationship(
+        back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )
 
 
 class ResumeProfile(Base):
     """Structured fields extracted from a user's resume. The original PDF is
-    parsed in-request and never persisted, only these derived fields are."""
+    parsed in-request; the original PDF is kept separately in ResumeFile."""
 
     __tablename__ = "resume_profiles"
 
@@ -95,3 +98,21 @@ class Application(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
     user: Mapped["User"] = relationship(back_populates="applications")
+
+
+class ResumeFile(Base):
+    """The user's original resume PDF, kept so the extension can attach it to
+    applications' file-upload fields. One per user; deletable from the web app."""
+
+    __tablename__ = "resume_files"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True, nullable=False)
+
+    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    size: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+
+    user: Mapped["User"] = relationship(back_populates="resume_file")

@@ -31,8 +31,12 @@ This is **not** a fully local/offline tool. Earlier drafts of this project's pit
 "100% local, never leaves your browser" -- that described a different, backend-free design and
 is no longer accurate now that the project supports accounts. Here's what's actually true today:
 
-- Your resume PDF is uploaded to the backend over HTTPS, parsed **in-memory**, and then
-  discarded. The raw file is not stored.
+- Your resume PDF is uploaded to the backend over HTTPS and parsed. **The original PDF is kept**
+  (one per account) so the extension can attach it to a job application's resume upload field;
+  before this, it was discarded after parsing. You can remove it any time from the web app's
+  Resume section, and re-uploading replaces it. It is only ever served back to you, with your
+  login token. In this dev setup it sits unencrypted in the database -- encrypt it or move it
+  to private object storage before running this for real users.
 - The backend stores your account (email + hashed password) and the **structured fields**
   extracted from your resume (name, email, phone, education, skills, work history) so your
   browser doesn't need to re-parse the PDF every time.
@@ -115,8 +119,8 @@ See [`backend/DEV.md`](backend/DEV.md), [`webapp/DEV.md`](webapp/DEV.md), and
 
 ## FAQ
 
-**Is my data safe?** Your resume PDF is parsed and discarded, not stored. The fields extracted
-from it, and your account, are stored on the backend. See [Data & privacy](#data--privacy) above.
+**Is my data safe?** Your original resume PDF, the fields extracted from it, and your account are
+stored on the backend (the PDF so the extension can attach it; you can delete it any time). See [Data & privacy](#data--privacy) above.
 
 **Does the extension submit applications for me?** No. It fills fields; you review and click the
 site's own submit button.
