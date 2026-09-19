@@ -19,7 +19,8 @@ race/ethnicity) most autofillers skip. You review the filled fields and hit subm
    voluntary EEO info too (every field defaults to unset/"prefer not to say").
 2. **Install the extension** and log into the same account. It reads that profile -- it doesn't
    have its own separate onboarding.
-3. **Open a job application page.** A green "Fill Application" button appears in the corner.
+3. **Open a job application page.** A small lime logo button appears in the corner -- only on pages
+   that actually look like a job application (not on signup or contact forms).
 4. **Click it.** Matching text fields, dropdowns, and radio-button EEO questions fill in and
    briefly highlight. **You review and submit the application yourself** -- the extension never
    submits anything on your behalf.

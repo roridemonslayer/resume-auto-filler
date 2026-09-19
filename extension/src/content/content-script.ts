@@ -480,69 +480,150 @@ function showToast(message: string) {
   const toast = document.createElement("div");
   toast.textContent = message;
   toast.style.cssText = `
-    position: fixed; bottom: 76px; right: 20px; z-index: 2147483647;
-    background: #1b7a43; color: white; padding: 8px 14px; border-radius: 6px;
-    font: 13px -apple-system, sans-serif; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    position: fixed; bottom: 144px; right: 20px; z-index: 2147483647; max-width: 320px;
+    background: #0a0a0b; color: #f6f5f0; padding: 10px 14px; border-radius: 12px;
+    border-left: 4px solid #c8ff3d; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    font: 500 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   `;
   document.body.appendChild(toast);
   setTimeout(() => toast.remove(), 2500);
 }
 
-// Only show the button on pages that actually look like a job
-// application -- otherwise it would appear on every single page the
-// user visits, which is noisy and reveals the extension is running
-// everywhere. "Looks like a job application" is approximated as
-// "has several fields we know how to fill", not a fixed page list,
-// since ATS platforms and custom career sites vary too much for a URL
-// or keyword allowlist to hold up.
-const JOB_FORM_FIELD_THRESHOLD = 3;
+// --- job application detection --------------------------------------------
+// The button must only appear on real job applications, not on every signup
+// or contact form that happens to have a name/email/phone field. So a page
+// needs (1) at least a few fields we can fill, AND (2) a score of job-specific
+// evidence: a known applicant-tracking-system host, a resume/CV upload,
+// phrases job forms ask (cover letter, work authorization, EEO...), and
+// "apply/careers/job" wording in the URL, title or heading.
 
-function countMatchableFields(): number {
-  const fields = document.querySelectorAll<HTMLElement>("input, textarea, select");
-  let count = 0;
+const BUTTON_ID = "resume-autofiller-button";
+const MIN_FILLABLE_FIELDS = 3;
+const JOB_SCORE_THRESHOLD = 4;
 
-  fields.forEach((field) => {
-    const tag = field.tagName.toLowerCase();
-    if (tag === "input") {
+const HOSTED_ATS_HOST =
+  /(^|\.)(greenhouse\.io|lever\.co|ashbyhq\.com|smartrecruiters\.com|workable\.com|jobvite\.com|myworkdayjobs\.com|myworkdaysite\.com|icims\.com|taleo\.net|breezy\.hr|recruitee\.com|bamboohr\.com|applytojob\.com|teamtailor\.com|pinpointhq\.com|eightfold\.ai|dayforcehcm\.com|ultipro\.com|paylocity\.com|successfactors\.(com|eu))$/i;
+const JOB_WORDS = /\b(apply|application|applicant|careers?|jobs?|positions?|openings?|hiring|recruit\w*|vacanc\w*)\b/i;
+const JOB_FORM_PHRASES =
+  /cover letter|authorized to work|work authorization|legally authorized|sponsorship|desired salary|salary expectations?|years of (relevant |professional )?experience|how did you hear (about|of) (us|this)|notice period|willing to relocate|linkedin (profile|url)|equal (employment )?opportunity/i;
+const RESUME_WORD = /\b(resume|résumé|cv|curriculum vitae)\b/i;
+const RESUME_UPLOAD_TEXT =
+  /(upload|attach|add|drop|select)\s+(your\s+|a\s+|the\s+|my\s+)?(resume|résumé|cv|curriculum vitae)|(resume|résumé|cv)\s*(\/\s*cv)?\s*\*?\s*(upload|attach|file)|\bresume\/cv\b/i;
+
+function fillableFieldKeys(): ProfileKey[] {
+  const keys: ProfileKey[] = [];
+
+  document.querySelectorAll<HTMLElement>("input, textarea, select").forEach((field) => {
+    if (field.tagName.toLowerCase() === "input") {
       const type = (field as HTMLInputElement).type;
-      if (["hidden", "submit", "button", "file"].includes(type)) return;
+      if (["hidden", "submit", "button", "file", "radio"].includes(type)) return;
     }
-    if (matchProfileKey(getFieldSignal(field))) count++;
+    const key = matchProfileKey(getFieldSignal(field));
+    if (key) keys.push(key);
   });
 
-  const radios = document.querySelectorAll<HTMLInputElement>('input[type="radio"]');
-  const groupedRadios = new Map<string, HTMLInputElement[]>();
-  radios.forEach((radio) => {
+  const groups = new Map<string, HTMLInputElement[]>();
+  document.querySelectorAll<HTMLInputElement>('input[type="radio"]').forEach((radio) => {
     if (!radio.name) return;
-    if (!groupedRadios.has(radio.name)) groupedRadios.set(radio.name, []);
-    groupedRadios.get(radio.name)!.push(radio);
+    if (!groups.has(radio.name)) groups.set(radio.name, []);
+    groups.get(radio.name)!.push(radio);
   });
-  groupedRadios.forEach((group) => {
-    if (matchProfileKey(getRadioGroupSignal(group))) count++;
+  groups.forEach((group) => {
+    const key = matchProfileKey(getRadioGroupSignal(group));
+    if (key) keys.push(key);
   });
 
-  return count;
+  return keys;
+}
+
+function hasResumeUpload(text: string): boolean {
+  const fileInputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
+  if (fileInputs.length === 0) return false;
+
+  for (const input of Array.from(fileInputs)) {
+    const container = input.closest("label, fieldset, div");
+    const nearby = `${getFieldSignal(input)} ${input.getAttribute("accept") ?? ""} ${(container?.textContent ?? "").slice(0, 300)}`;
+    if (RESUME_WORD.test(nearby)) return true;
+  }
+  // Some forms hide the real input behind an "Attach" button labelled elsewhere.
+  return RESUME_UPLOAD_TEXT.test(text);
+}
+
+function jobApplicationScore(keys: ProfileKey[]): number {
+  let score = 0;
+  if (HOSTED_ATS_HOST.test(location.hostname)) score += 3;
+
+  const heading = document.querySelector("h1")?.textContent ?? "";
+  if (JOB_WORDS.test(`${location.pathname} ${document.title} ${heading}`)) score += 1;
+
+  const text = bodyText();
+  if (hasResumeUpload(text)) score += 3;
+  if (JOB_FORM_PHRASES.test(text)) score += 2;
+  if (keys.includes("veteran_status") || keys.includes("disability_status")) score += 2;
+
+  return score;
 }
 
 function pageLooksLikeJobApplication(): boolean {
-  return countMatchableFields() >= JOB_FORM_FIELD_THRESHOLD;
+  const keys = fillableFieldKeys();
+  if (keys.length < MIN_FILLABLE_FIELDS) return false;
+  // A payment form is never a job application, whatever else it asks.
+  if (document.querySelector('input[autocomplete^="cc-"]')) return false;
+  return jobApplicationScore(keys) >= JOB_SCORE_THRESHOLD;
 }
 
-function injectFillButton() {
-  if (document.getElementById("resume-autofiller-button")) return;
+// --- floating logo button -------------------------------------------------
+// Lives in a shadow root so the host page's CSS can't restyle it. Collapsed
+// it's just the logo; on hover it expands to show what it does.
 
-  const button = document.createElement("button");
-  button.id = "resume-autofiller-button";
-  button.textContent = "Fill Application";
-  button.style.cssText = `
-    position: fixed; bottom: 20px; right: 20px; z-index: 2147483647;
-    background: #229954; color: white; border: none; border-radius: 999px;
-    padding: 12px 18px; font: 600 13px -apple-system, sans-serif;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.25); cursor: pointer;
-  `;
+const LOGO_SVG = `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M7.5 4.5h5.6a4.1 4.1 0 0 1 1.5 7.9l3.1 7.1h-3l-2.8-6.6H10v6.6H7.5V4.5zm2.5 2.4v3.6h2.9a1.8 1.8 0 0 0 0-3.6H10z"/></svg>`;
+const CHECK_SVG = `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" d="M5.5 12.5l4.2 4.2 8.8-9.2"/></svg>`;
+
+const BUTTON_CSS = `
+  :host { all: initial; }
+  button {
+    all: unset; box-sizing: border-box; position: absolute; right: 0; bottom: 0; height: 48px;
+    display: flex; align-items: center; cursor: pointer; overflow: hidden; border-radius: 999px;
+    background: #0a0a0b; color: #f6f5f0;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.1);
+    font: 600 13.5px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    transition: transform 0.15s ease, box-shadow 0.2s ease;
+  }
+  button:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(200, 255, 61, 0.5); }
+  button:focus-visible { outline: 2px solid #c8ff3d; outline-offset: 3px; }
+  .label {
+    max-width: 0; opacity: 0; padding-left: 0; white-space: nowrap;
+    transition: max-width 0.25s ease, opacity 0.2s ease, padding 0.25s ease;
+  }
+  button:hover .label, button:focus-visible .label { max-width: 150px; opacity: 1; padding-left: 18px; }
+  .logo {
+    flex: 0 0 48px; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;
+    background: #c8ff3d; color: #0a0a0b; border-radius: 50%;
+  }
+  button.busy .logo { animation: pulse 0.9s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: 0.55; } }
+`;
+
+function injectFillButton() {
+  if (document.getElementById(BUTTON_ID)) return;
+
+  const host = document.createElement("div");
+  host.id = BUTTON_ID;
+  host.style.cssText = "position: fixed; bottom: 84px; right: 20px; width: 48px; height: 48px; z-index: 2147483647;";
+
+  const root = host.attachShadow({ mode: "open" });
+  root.innerHTML = `<style>${BUTTON_CSS}</style>
+    <button type="button" aria-label="Fill this application with Resume Auto-Filler" title="Fill application">
+      <span class="label">Fill application</span><span class="logo">${LOGO_SVG}</span>
+    </button>`;
+
+  const button = root.querySelector("button")!;
+  const logo = root.querySelector(".logo")!;
 
   button.addEventListener("click", async () => {
+    button.classList.add("busy");
     const profile = await loadFreshProfile();
+    button.classList.remove("busy");
     if (!profile || !profile.has_resume) {
       showToast("Upload your resume in the extension popup first.");
       return;
@@ -552,13 +633,16 @@ function injectFillButton() {
       showToast("No matching fields found on this page.");
       return;
     }
+    logo.innerHTML = CHECK_SVG;
+    setTimeout(() => (logo.innerHTML = LOGO_SVG), 1600);
     const logged = await maybeLogApplication();
     showToast(
       `Filled ${count} field${count === 1 ? "" : "s"}. Review and submit.${logged ? " Added to your tracker." : ""}`,
     );
   });
 
-  document.body.appendChild(button);
+  document.body.appendChild(host);
+  injectedHref = location.href;
   startSubmitWatcher();
 }
 
@@ -571,30 +655,46 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return true;
 });
 
-// Many ATS platforms render their form fields client-side after the
-// initial page load, so a single check at document_idle can run
-// before the fields exist. Re-check on DOM mutations (debounced, and
-// stopped once the button is showing) instead of polling forever.
+// Many ATS platforms render their form fields client-side after the initial
+// page load, and single-page apps change routes without reloading, so keep
+// watching DOM changes (debounced). Scans are capped per URL so a busy page
+// that never turns out to be an application doesn't cost CPU forever, and the
+// button is removed if the page navigates to something that isn't one.
+const MAX_SCANS_PER_URL = 40;
+let injectedHref = "";
 let scanScheduled = false;
+let scanCount = 0;
+let lastScanHref = location.href;
 
 function scheduleScan() {
-  if (scanScheduled || document.getElementById("resume-autofiller-button")) return;
+  if (scanScheduled) return;
   scanScheduled = true;
   setTimeout(() => {
     scanScheduled = false;
-    if (!document.getElementById("resume-autofiller-button") && pageLooksLikeJobApplication()) {
-      injectFillButton();
+    if (location.href !== lastScanHref) {
+      lastScanHref = location.href;
+      scanCount = 0;
     }
+
+    const button = document.getElementById(BUTTON_ID);
+    if (button) {
+      if (location.href !== injectedHref) {
+        injectedHref = location.href;
+        if (!pageLooksLikeJobApplication()) button.remove();
+      }
+      return;
+    }
+
+    if (scanCount >= MAX_SCANS_PER_URL) return;
+    scanCount++;
+    if (pageLooksLikeJobApplication()) injectFillButton();
   }, 400);
 }
 
 function startWatching() {
   scheduleScan();
   const observer = new MutationObserver(() => {
-    if (document.getElementById("resume-autofiller-button")) {
-      observer.disconnect();
-      return;
-    }
+    if (document.getElementById(BUTTON_ID) && location.href === injectedHref) return;
     scheduleScan();
   });
   observer.observe(document.documentElement, { childList: true, subtree: true });

@@ -48,10 +48,17 @@ built extension to test the full auth/upload/fill flow.
   filling on the active tab. Talks to the backend directly via `fetch` (see `src/popup/api.ts`);
   `API_BASE_URL` there defaults to `http://localhost:8000` and needs updating (plus a matching
   entry in `public/manifest.json`'s `host_permissions`) before pointing at a deployed backend.
-- `src/content/content-script.ts` -- runs on every page (manifest `matches: <all_urls>`), but only
-  shows the "Fill Application" button once the page has 3+ fields it recognizes (`countMatchableFields`
-  / `pageLooksLikeJobApplication`) -- a debounced `MutationObserver` re-checks as the DOM changes,
-  since many ATS platforms render their fields client-side after the initial load. Matches
+- `src/content/content-script.ts` -- runs on every top-level page (manifest `matches: <all_urls>`).
+  The floating logo button (a lime "R" that expands to "Fill application" on hover, in a shadow
+  root so page CSS can't touch it) only appears when `pageLooksLikeJobApplication` passes: at least
+  3 fillable fields AND a job-evidence score of 4+ (`jobApplicationScore`): known ATS host +3,
+  resume/CV upload +3, job-form phrases (cover letter, work authorization, EEO...) +2, veteran/
+  disability fields +2, apply/careers/job wording in the URL, title or heading +1. Card-number
+  fields veto it. So signup, contact, newsletter and checkout forms don't trigger it, but real
+  Greenhouse/Lever/Ashby forms do. A debounced `MutationObserver` re-checks as the DOM changes
+  (capped at 40 scans per URL) since many ATS platforms render fields client-side, and the button
+  is removed if a single-page app navigates to something that isn't an application. The button
+  sits 84px up so it clears the reCAPTCHA badge many ATS pages pin to the corner. Matches
   `input`/`textarea`/`select` elements against the user's profile using name/id/placeholder/label-text
   heuristics, and fills them via the native property setter (not just `.value =`) so frameworks like
   React that back many ATS forms (e.g. Greenhouse) actually register the change.
@@ -88,3 +95,10 @@ built extension to test the full auth/upload/fill flow.
   fills in.
 - `<select>` dropdowns only fill when an option's visible text loosely matches the profile value.
 - No keyboard shortcut yet.
+
+## Known limitations
+
+- **Embedded application forms (iframes).** The content script only runs in the top-level page, so
+  when a company's own careers site embeds the ATS form in an iframe (e.g. Airbnb embedding
+  Greenhouse's `/embed/job_app`), the button doesn't appear. Supporting this means running in
+  frames and relaying show/fill/log messages through the background worker to the top frame.
