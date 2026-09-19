@@ -284,6 +284,87 @@ function fillForm(profile: FullProfile): number {
   return fillTextAndSelectFields(profile) + fillRadioGroups(profile);
 }
 
+// The popup only refreshes its cached profile when opened, so ask the
+// background worker for a fresh copy before each fill and fall back to the
+// cache if the backend can't be reached.
+function loadFreshProfile(): Promise<FullProfile | null> {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage({ type: "REFRESH_PROFILE" }, (response) => {
+      if (chrome.runtime.lastError || !response?.profile) {
+        chrome.storage.local.get(["profile"], (result) => resolve((result.profile as FullProfile) ?? null));
+      } else {
+        resolve(response.profile as FullProfile);
+      }
+    });
+  });
+}
+
+// --- application tracking -------------------------------------------------
+// After a successful fill we tell the backend which page it was so the web
+// app's tracker can list it. This sends the page URL plus a guessed company
+// and role to the user's own account; it can be turned off in the popup.
+
+const TRACK_SETTING_KEY = "trackApplications";
+const HOSTED_ATS_PATH_COMPANY = /(^|\.)(greenhouse\.io|lever\.co|ashbyhq\.com|smartrecruiters\.com|workable\.com|jobvite\.com)$/;
+const HOSTED_ATS_SUBDOMAIN_COMPANY = /\.(myworkdayjobs\.com|icims\.com|taleo\.net|breezy\.hr|recruitee\.com|bamboohr\.com)$/;
+// Query params that identify a specific posting; everything else (tracking
+// params, session ids) is dropped so the same job dedupes to one row.
+const JOB_ID_PARAMS = /^(gh_jid|jid|jobid|job_id|jobs?|id|reqid|req|requisition|posting)$/i;
+
+function prettify(slug: string): string {
+  return slug
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim()
+    .slice(0, 200);
+}
+
+function guessCompany(): string {
+  const host = location.hostname.replace(/^www\./, "");
+  const firstPathSegment = location.pathname.split("/").filter(Boolean)[0];
+
+  if (HOSTED_ATS_PATH_COMPANY.test(host) && firstPathSegment) return prettify(firstPathSegment);
+  if (HOSTED_ATS_SUBDOMAIN_COMPANY.test(host)) return prettify(host.split(".")[0]);
+
+  const siteName = document.querySelector('meta[property="og:site_name"]')?.getAttribute("content")?.trim();
+  if (siteName) return siteName.slice(0, 200);
+
+  const labels = host.split(".");
+  return prettify(labels.length >= 2 ? labels[labels.length - 2] : labels[0]) || host;
+}
+
+function guessRole(): string | null {
+  const heading = document.querySelector("h1")?.textContent?.replace(/\s+/g, " ").trim();
+  const raw = heading || document.title.replace(/\s+/g, " ").trim();
+  return raw ? raw.slice(0, 300) : null;
+}
+
+function cleanPageUrl(): string | null {
+  if (!/^https?:$/.test(location.protocol)) return null;
+  const url = new URL(location.href);
+  const keep = new URLSearchParams();
+  url.searchParams.forEach((value, key) => {
+    if (JOB_ID_PARAMS.test(key)) keep.set(key, value);
+  });
+  const query = keep.toString();
+  return `${url.origin}${url.pathname}${query ? `?${query}` : ""}`;
+}
+
+function maybeLogApplication(): Promise<boolean> {
+  return new Promise((resolve) => {
+    chrome.storage.local.get([TRACK_SETTING_KEY], (result) => {
+      if (result[TRACK_SETTING_KEY] === false) {
+        resolve(false);
+        return;
+      }
+      const payload = { company: guessCompany(), role: guessRole(), url: cleanPageUrl(), status: "filled" };
+      chrome.runtime.sendMessage({ type: "LOG_APPLICATION", payload }, (response) => {
+        resolve(!chrome.runtime.lastError && Boolean(response?.ok));
+      });
+    });
+  });
+}
+
 function showToast(message: string) {
   const toast = document.createElement("div");
   toast.textContent = message;
@@ -349,16 +430,21 @@ function injectFillButton() {
     box-shadow: 0 2px 10px rgba(0,0,0,0.25); cursor: pointer;
   `;
 
-  button.addEventListener("click", () => {
-    chrome.storage.local.get(["profile"], (result) => {
-      const profile = result.profile as FullProfile | undefined;
-      if (!profile || !profile.has_resume) {
-        showToast("Upload your resume in the extension popup first.");
-        return;
-      }
-      const count = fillForm(profile);
-      showToast(count > 0 ? `Filled ${count} field${count === 1 ? "" : "s"}. Review and submit.` : "No matching fields found on this page.");
-    });
+  button.addEventListener("click", async () => {
+    const profile = await loadFreshProfile();
+    if (!profile || !profile.has_resume) {
+      showToast("Upload your resume in the extension popup first.");
+      return;
+    }
+    const count = fillForm(profile);
+    if (count === 0) {
+      showToast("No matching fields found on this page.");
+      return;
+    }
+    const logged = await maybeLogApplication();
+    showToast(
+      `Filled ${count} field${count === 1 ? "" : "s"}. Review and submit.${logged ? " Added to your tracker." : ""}`,
+    );
   });
 
   document.body.appendChild(button);
@@ -367,6 +453,7 @@ function injectFillButton() {
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "FILL_FORM" && message.profile) {
     const count = fillForm(message.profile as FullProfile);
+    if (count > 0) void maybeLogApplication();
     sendResponse({ filled: count });
   }
   return true;

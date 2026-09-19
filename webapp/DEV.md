@@ -56,8 +56,10 @@ Type-checks then builds to `dist/`, deployable as a static site (Vercel, Netlify
 
 - `/` -- landing page (marketing pitch, honest data/privacy section)
 - `/login`, `/signup` -- auth, both handled by `src/pages/Auth.tsx`
-- `/dashboard` -- protected (`RequireAuth`); resume upload + parsed summary, and the voluntary
-  identity information form (`src/lib/eeoOptions.ts` holds the option lists)
+- `/dashboard` -- protected (`RequireAuth`); resume upload + parsed summary, an editable
+  "Profile details" section (`components/ProfileEditor.tsx`), the application tracker board
+  (`components/ApplicationTracker.tsx`), and the voluntary identity information form
+  (`src/lib/eeoOptions.ts` holds the option lists)
 
 ## Architecture notes
 
@@ -75,3 +77,15 @@ Type-checks then builds to `dist/`, deployable as a static site (Vercel, Netlify
 - A signup (email/password or Google) sets a `sessionStorage` flag that shows a one-time "Account
   created" banner on the dashboard (`Dashboard.tsx`'s `showWelcome` state) -- no backend involved,
   works with zero setup.
+- Education/experience are stored as flat lists of lines, so `ProfileEditor` edits them as
+  one-line-per-entry text areas; lines starting with a bullet character render as bullets.
+- `useApplications` (in `ApplicationTracker.tsx`) owns the tracker state so the dashboard's
+  overview tile and the board share it. It updates optimistically and reverts on error, and
+  refetches when the window regains focus, since the extension logs fills from other tabs.
+- The backend returns naive UTC timestamps; `formatDate` tags them as UTC before parsing.
+- Layout gotcha: the dashboard grids use `minmax(0, 1fr)` columns on purpose. With plain `1fr`,
+  the board's fixed-width columns stretch the whole page sideways instead of scrolling inside
+  their card.
+- The design is dark-first (`:root`) with `[data-theme="light"]` overriding the tokens; the
+  accent is lime and always sits on near-black text. `ThemeContext` defaults to dark, and its
+  storage key is versioned so a redesign can reset stale saved themes.

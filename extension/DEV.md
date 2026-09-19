@@ -55,8 +55,17 @@ built extension to test the full auth/upload/fill flow.
   `input`/`textarea`/`select` elements against the user's profile using name/id/placeholder/label-text
   heuristics, and fills them via the native property setter (not just `.value =`) so frameworks like
   React that back many ATS forms (e.g. Greenhouse) actually register the change.
-- `src/background/background.ts` -- currently minimal; the natural home for keyboard-shortcut
-  (`chrome.commands`) support from the roadmap.
+- `src/background/background.ts` -- does the backend calls the content script needs (content
+  scripts run under the job site's CSP/CORS, the worker has `host_permissions`): `REFRESH_PROFILE`
+  fetches a fresh profile before each fill so web-app edits apply immediately (the popup also
+  refreshes when opened), and `LOG_APPLICATION` posts the filled page to `/applications`. It is
+  also the natural home for keyboard-shortcut (`chrome.commands`) support from the roadmap.
+  `API_BASE_URL` is duplicated here because the worker can't import from the popup code.
+- Application tracking: after a fill, the content script guesses company (hosted-ATS path or
+  subdomain, then `og:site_name`, then the domain), role (first `<h1>`, else the page title) and a
+  cleaned URL (only job-id query params like `gh_jid` are kept so the same posting dedupes). The
+  popup's "Add filled pages to my application tracker" checkbox stores `trackApplications` in
+  `chrome.storage.local`; only an explicit `false` disables logging.
 - `background.ts` and `content-script.ts` are deliberately import/export-free and compiled by a
   separate `tsconfig.scripts.json` (not bundled by Vite), because MV3 content scripts run as
   classic scripts and choke on ES module syntax. If you need to share code with the popup, copy

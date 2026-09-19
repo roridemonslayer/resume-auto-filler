@@ -19,13 +19,29 @@ export default function Popup() {
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [track, setTrack] = useState(true);
 
   useEffect(() => {
-    chrome.storage.local.get(["token", "profile"], (result) => {
-      if (result.token) setToken(result.token);
+    chrome.storage.local.get(["token", "profile", "trackApplications"], (result) => {
+      if (result.token) {
+        setToken(result.token);
+        // Edits made in the web app show up as soon as the popup opens.
+        fetchProfile(result.token)
+          .then((fresh) => {
+            setProfile(fresh);
+            chrome.storage.local.set({ profile: fresh });
+          })
+          .catch(() => {});
+      }
       if (result.profile) setProfile(result.profile);
+      if (result.trackApplications === false) setTrack(false);
     });
   }, []);
+
+  function handleTrackToggle(checked: boolean) {
+    setTrack(checked);
+    chrome.storage.local.set({ trackApplications: checked });
+  }
 
   async function handleAuth(kind: View) {
     setError(null);
@@ -185,6 +201,11 @@ export default function Popup() {
             <button className="btn-primary" disabled={!profile?.has_resume || busy} onClick={handleFill}>
               Fill Application
             </button>
+
+            <label className="toggle-row">
+              <input type="checkbox" checked={track} onChange={(e) => handleTrackToggle(e.target.checked)} />
+              <span>Add filled pages to my application tracker</span>
+            </label>
 
             <a className="webapp-link" href={WEBAPP_URL} target="_blank" rel="noreferrer">
               Manage full profile & EEO info →

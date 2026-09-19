@@ -36,8 +36,12 @@ is no longer accurate now that the project supports accounts. Here's what's actu
   extracted from your resume (name, email, phone, education, skills, work history) so your
   browser doesn't need to re-parse the PDF every time.
 - Filling itself happens entirely in your browser: the extension reads your stored profile and
-  writes it into the page's form fields. Nothing about the job site you're on is sent back to
-  the backend.
+  writes it into the page's form fields. What you see or type on the job site is never sent back.
+- **Application tracking:** by default, when you click Fill, the extension also sends that page's
+  URL (with tracking parameters stripped) plus a guessed company name and role title (taken from
+  the page's heading) to your account, so the web app's tracker can list it. Untick "Add filled
+  pages to my application tracker" in the extension popup to turn this off; nothing is sent then.
+  Tracked applications are stored with your account and you can delete them from the web app.
 - We don't sell data, run ads, or add tracking. But "your data leaves your device" is the
   honest description of the current architecture -- treat it accordingly until this is backed
   by a real security review.
@@ -53,6 +57,10 @@ is no longer accurate now that the project supports accounts. Here's what's actu
   (Greenhouse-style forms), by dispatching real input events
 - PDF parsing on upload (name, contact info, education, skills, a basic work-history section)
 - Visual feedback -- filled fields highlight briefly
+- Editable profile -- see the education and experience parsed from your resume, and fix or add
+  anything (including skills) in the web app; the extension picks up edits on the next fill
+- Application tracker -- every page you fill is logged to a kanban board (filled / applied /
+  interviewing / offer / rejected) in the web app, with drag-and-drop, notes, and manual adds
 - Free, open source, no premium tier
 
 ## Roadmap
@@ -61,7 +69,7 @@ is no longer accurate now that the project supports accounts. Here's what's actu
 - Better multi-job work history extraction (structured roles with dates, not one text block)
 - Date field support (graduation, employment dates)
 - Better dropdown/select detection
-- Edit extracted data before filling, from the popup
+- Edit extracted data from the popup (editing already works in the web app)
 
 **Medium term**
 - Multiple resume versions per account
