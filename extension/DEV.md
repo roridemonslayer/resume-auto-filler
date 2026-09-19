@@ -68,6 +68,16 @@ built extension to test the full auth/upload/fill flow.
   refreshes when opened), and `LOG_APPLICATION` posts the filled page to `/applications`. It is
   also the natural home for keyboard-shortcut (`chrome.commands`) support from the roadmap.
   `API_BASE_URL` is duplicated here because the worker can't import from the popup code.
+- Resume attach (`attachResume`): after filling text fields, if the account has a stored PDF
+  (`profile.resume_file`) the content script asks the background worker for it (`GET_RESUME_FILE`,
+  returned as base64 because messages are JSON-only) and sets it on the form's resume `<input
+  type="file">` via `DataTransfer` plus `input`/`change` events -- what a drag-and-drop does, so
+  ATS uploaders react (verified against Greenhouse, whose page immediately POSTed the exact PDF
+  bytes to its S3 bucket). `fileInputKind` decides resume vs cover letter from the input's own
+  label, then the nearest ancestor mentioning exactly one of them; if a container mentions both it
+  refuses to guess. Inputs whose `accept` excludes PDFs, disabled inputs, and inputs that already
+  hold a file are skipped. If the form wants a resume but the account has no stored PDF, the toast
+  says to re-upload it in the web app.
 - Application tracking: after a fill, the content script guesses company (hosted-ATS path or
   subdomain, then `og:site_name`, then the domain), role (first `<h1>`, else the page title) and a
   cleaned URL (only job-id query params like `gh_jid` are kept so the same posting dedupes). The

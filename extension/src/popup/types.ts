@@ -20,4 +20,5 @@ export interface FullProfile {
   resume: ResumeProfile;
   eeo: EeoProfile;
   has_resume: boolean;
+  resume_file: { name: string; size: number; updated_at: string } | null;
 }

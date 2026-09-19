@@ -37,6 +37,29 @@ async function refreshProfile(): Promise<{ profile?: unknown; error?: string }> 
   }
 }
 
+// Returns the stored resume PDF as base64 (message passing is JSON-only).
+async function fetchResumeFile(): Promise<{ name?: string; base64?: string; error?: string }> {
+  const token = await getToken();
+  if (!token) return { error: "not-logged-in" };
+  try {
+    const response = await fetch(`${API_BASE_URL}/resume/file`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) return { error: String(response.status) };
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    let binary = "";
+    const CHUNK = 0x8000;
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+      binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + CHUNK)));
+    }
+    const disposition = response.headers.get("Content-Disposition") ?? "";
+    const name = /filename="([^"]+)"/.exec(disposition)?.[1] ?? "resume.pdf";
+    return { name, base64: btoa(binary) };
+  } catch {
+    return { error: "network" };
+  }
+}
+
 async function logApplication(payload: unknown): Promise<{ ok: boolean }> {
   const token = await getToken();
   if (!token) return { ok: false };
@@ -89,6 +112,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message?.type === "REFRESH_PROFILE") {
     refreshProfile().then(sendResponse);
+    return true;
+  }
+  if (message?.type === "GET_RESUME_FILE") {
+    fetchResumeFile().then(sendResponse);
     return true;
   }
   if (message?.type === "LOG_APPLICATION") {

@@ -27,6 +27,7 @@ interface FullProfile {
   resume: ResumeProfile;
   eeo: EeoProfile;
   has_resume: boolean;
+  resume_file: { name: string; size: number; updated_at: string } | null;
 }
 
 type ProfileKey =
@@ -282,6 +283,79 @@ function fillRadioGroups(profile: FullProfile): number {
 
 function fillForm(profile: FullProfile): number {
   return fillTextAndSelectFields(profile) + fillRadioGroups(profile);
+}
+
+// --- resume file attach ---------------------------------------------------
+// Sets the stored PDF on the form's resume upload input the same way a
+// drag-and-drop would (DataTransfer + input/change events), so frameworks and
+// ATS uploaders that listen for a file selection pick it up.
+
+const COVER_LETTER_WORD = /cover[\s_-]?letter/i;
+
+// Decides what a file input is for by its own label first, then by the
+// nearest ancestor whose text mentions exactly one of resume / cover letter.
+// If a container mentions both it's ambiguous, so we don't guess.
+function fileInputKind(input: HTMLInputElement): "resume" | "cover" | null {
+  const own = getFieldSignal(input);
+  if (RESUME_WORD.test(own) && !COVER_LETTER_WORD.test(own)) return "resume";
+  if (COVER_LETTER_WORD.test(own) && !RESUME_WORD.test(own)) return "cover";
+
+  let el: HTMLElement | null = input.parentElement;
+  for (let depth = 0; el && depth < 6; depth++, el = el.parentElement) {
+    const text = (el.textContent ?? "").slice(0, 500);
+    const resume = RESUME_WORD.test(text);
+    const cover = COVER_LETTER_WORD.test(text);
+    if (resume && !cover) return "resume";
+    if (cover && !resume) return "cover";
+    if (resume && cover) return null;
+  }
+  return null;
+}
+
+function acceptsPdf(input: HTMLInputElement): boolean {
+  const accept = (input.getAttribute("accept") ?? "").toLowerCase();
+  return !accept || /pdf|application\/\*|\*\/\*/.test(accept);
+}
+
+function findResumeInput(): HTMLInputElement | null {
+  const inputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[type="file"]'));
+  return (
+    inputs.find(
+      (input) => !input.disabled && (input.files?.length ?? 0) === 0 && acceptsPdf(input) && fileInputKind(input) === "resume",
+    ) ?? null
+  );
+}
+
+function base64ToFile(base64: string, name: string): File {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new File([bytes], name, { type: "application/pdf" });
+}
+
+async function attachResume(profile: FullProfile): Promise<boolean> {
+  if (!profile.resume_file) return false;
+  const input = findResumeInput();
+  if (!input) return false;
+
+  const response = await new Promise<{ name?: string; base64?: string } | undefined>((resolve) => {
+    chrome.runtime.sendMessage({ type: "GET_RESUME_FILE" }, (r) => resolve(chrome.runtime.lastError ? undefined : r));
+  });
+  if (!response?.base64) return false;
+
+  const transfer = new DataTransfer();
+  transfer.items.add(base64ToFile(response.base64, response.name ?? profile.resume_file.name));
+  input.files = transfer.files;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+  highlight(input.closest("label") ?? input.parentElement ?? input);
+  return true;
+}
+
+async function fillEverything(profile: FullProfile): Promise<{ fields: number; attached: boolean }> {
+  const fields = fillForm(profile);
+  const attached = await attachResume(profile);
+  return { fields, attached };
 }
 
 // The popup only refreshes its cached profile when opened, so ask the
@@ -628,16 +702,19 @@ function injectFillButton() {
       showToast("Upload your resume in the extension popup first.");
       return;
     }
-    const count = fillForm(profile);
-    if (count === 0) {
+    const { fields, attached } = await fillEverything(profile);
+    if (fields === 0 && !attached) {
       showToast("No matching fields found on this page.");
       return;
     }
     logo.innerHTML = CHECK_SVG;
     setTimeout(() => (logo.innerHTML = LOGO_SVG), 1600);
     const logged = await maybeLogApplication();
+    const missingFile = !attached && !profile.resume_file && findResumeInput() !== null;
     showToast(
-      `Filled ${count} field${count === 1 ? "" : "s"}. Review and submit.${logged ? " Added to your tracker." : ""}`,
+      `Filled ${fields} field${fields === 1 ? "" : "s"}${attached ? " and attached your resume" : ""}. Review and submit.` +
+        `${logged ? " Added to your tracker." : ""}` +
+        `${missingFile ? " Re-upload your PDF in the web app so I can attach it." : ""}`,
     );
   });
 
@@ -648,9 +725,10 @@ function injectFillButton() {
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "FILL_FORM" && message.profile) {
-    const count = fillForm(message.profile as FullProfile);
-    if (count > 0) void maybeLogApplication();
-    sendResponse({ filled: count });
+    fillEverything(message.profile as FullProfile).then(({ fields, attached }) => {
+      if (fields > 0 || attached) void maybeLogApplication();
+      sendResponse({ filled: fields, attached });
+    });
   }
   return true;
 });
