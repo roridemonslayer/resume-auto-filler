@@ -22,3 +22,24 @@ export interface FullProfile {
   has_resume: boolean;
   resume_file: { name: string; size: number; updated_at: string } | null;
 }
+
+export type ApplicationStatus = "filled" | "applied" | "interviewing" | "offer" | "rejected";
+
+export interface Application {
+  id: number;
+  company: string;
+  role: string | null;
+  url: string | null;
+  status: ApplicationStatus;
+}
+
+// What the content script reports about the active tab.
+export interface PageInfo {
+  looksLikeApplication: boolean;
+  fields: number;
+  hasResumeInput: boolean;
+  company: string;
+  role: string | null;
+  url: string | null;
+  host: string;
+}

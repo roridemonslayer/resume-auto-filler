@@ -104,6 +104,25 @@ extension/   Chrome extension (Manifest V3): thin popup + TypeScript content scr
 See [`backend/DEV.md`](backend/DEV.md), [`webapp/DEV.md`](webapp/DEV.md), and
 [`extension/DEV.md`](extension/DEV.md) for setup.
 
+## Try it on a real job application
+
+```bash
+./dev.sh
+```
+
+That builds the extension and starts the backend (`:8000`) and web app (`:5173`). Then:
+
+1. Open http://localhost:5173, sign up or log in (Google works too), and upload your resume PDF.
+2. In Chrome go to `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and
+   pick `extension/dist` (if it's already loaded, click its reload icon after each rebuild).
+3. Open a real application on Greenhouse, Lever, Ashby, etc. A small lime **R** appears in the
+   corner; click it, or click the extension icon and press **Autofill**. Your details are filled
+   in and your resume is attached. Review everything and submit it yourself.
+
+The extension signs itself in from the web app, so being logged in there (in the same browser) is
+enough. It only runs on the top-level page for now, so a company site that embeds its application
+form in an iframe won't show the button yet.
+
 ## Installation (development)
 
 **Chrome Web Store listing:** not yet submitted.

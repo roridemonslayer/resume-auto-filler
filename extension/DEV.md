@@ -44,8 +44,16 @@ built extension to test the full auth/upload/fill flow.
 
 ## Architecture notes
 
-- `src/popup/` -- React popup: login/signup, resume upload, shows the parsed profile, triggers
-  filling on the active tab. Talks to the backend directly via `fetch` (see `src/popup/api.ts`);
+- `src/popup/` -- React popup (400px, dark/lime like the web app). It asks the active tab's content
+  script what's on the page (`GET_PAGE_INFO`: looks like an application?, field count, resume upload
+  present, guessed company/role) and shows that as a job card with a big Autofill button (which
+  sends `FILL_FORM` with the profile), plus rows for the profile, stored resume, voluntary info
+  and tracked applications that deep-link into the web app (`/dashboard#section`) and a red dot
+  when something's missing. A settings view holds the tracking toggle and log out. Logged out, it
+  offers email/password and points at the web app, whose login the extension picks up
+  automatically (`SYNC_TOKEN`, see below). Opening it as a normal tab with `?tab=<tabId>` targets
+  that tab instead of the active one, which is how it's tested. Talks to the backend directly via
+  `fetch` (see `src/popup/api.ts`);
   `API_BASE_URL` there defaults to `http://localhost:8000` and needs updating (plus a matching
   entry in `public/manifest.json`'s `host_permissions`) before pointing at a deployed backend.
 - `src/content/content-script.ts` -- runs on every top-level page (manifest `matches: <all_urls>`).
@@ -78,6 +86,12 @@ built extension to test the full auth/upload/fill flow.
   refuses to guess. Inputs whose `accept` excludes PDFs, disabled inputs, and inputs that already
   hold a file are skipped. If the form wants a resume but the account has no stored PDF, the toast
   says to re-upload it in the web app.
+- Web app sign-in (`SYNC_TOKEN`): on the web app's exact origin (`WEBAPP_ORIGIN` in the content
+  script, must match `WEBAPP_URL` in `popup/api.ts`) the content script reads its login token from
+  `localStorage` on load and listens for the `resumeAutoFiller.token` `postMessage` the web app
+  sends when someone logs in, and passes it to the background worker, which stores it and loads
+  the profile. That is what lets Google-only accounts (no password) use the extension. Messages
+  from any other origin are ignored.
 - Application tracking: after a fill, the content script guesses company (hosted-ATS path or
   subdomain, then `og:site_name`, then the domain), role (first `<h1>`, else the page title) and a
   cleaned URL (only job-id query params like `gh_jid` are kept so the same posting dedupes). The

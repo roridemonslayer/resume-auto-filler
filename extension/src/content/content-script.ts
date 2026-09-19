@@ -724,6 +724,19 @@ function injectFillButton() {
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type === "GET_PAGE_INFO") {
+    sendResponse({
+      looksLikeApplication: pageLooksLikeJobApplication(),
+      fields: fillableFieldKeys().length,
+      hasResumeInput: Array.from(document.querySelectorAll<HTMLInputElement>('input[type="file"]')).some(
+        (input) => fileInputKind(input) === "resume",
+      ),
+      company: guessCompany(),
+      role: guessRole(),
+      url: cleanPageUrl(),
+      host: location.hostname,
+    });
+  }
   if (message?.type === "FILL_FORM" && message.profile) {
     fillEverything(message.profile as FullProfile).then(({ fields, attached }) => {
       if (fields > 0 || attached) void maybeLogApplication();

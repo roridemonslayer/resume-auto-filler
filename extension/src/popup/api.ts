@@ -1,4 +1,4 @@
-import type { FullProfile, ResumeProfile } from "./types";
+import type { Application, FullProfile, ResumeProfile } from "./types";
 
 // Point these at your deployed backend/web app before publishing to
 // the Web Store; both default to local dev servers. API_BASE_URL must
@@ -62,4 +62,14 @@ export async function fetchProfile(token: string): Promise<FullProfile> {
     throw new Error(await parseErrorDetail(response));
   }
   return (await response.json()) as FullProfile;
+}
+
+export async function listApplications(token: string): Promise<Application[]> {
+  const response = await fetch(`${API_BASE_URL}/applications`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    throw new Error(await parseErrorDetail(response));
+  }
+  return (await response.json()) as Application[];
 }
