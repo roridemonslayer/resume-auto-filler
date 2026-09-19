@@ -1,4 +1,7 @@
-from pydantic import BaseModel, EmailStr, Field
+from datetime import datetime
+from typing import Literal
+
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class UserCreate(BaseModel):
@@ -62,3 +65,125 @@ class FullProfileOut(BaseModel):
     resume: ResumeProfileOut
     eeo: EeoProfileOut
     has_resume: bool
+
+
+def _clean_str(value: str | None) -> str | None:
+    if value is None:
+        return None
+    value = value.strip()
+    return value or None
+
+
+def _clean_list(values: list[str]) -> list[str]:
+    return [v.strip() for v in values if v and v.strip()]
+
+
+class ResumeProfileIn(BaseModel):
+    """Full replacement of the editable resume fields. Blank strings are
+    stored as null and blank list entries are dropped."""
+
+    first_name: str | None = Field(default=None, max_length=100)
+    last_name: str | None = Field(default=None, max_length=100)
+    email: str | None = Field(default=None, max_length=255)
+    phone: str | None = Field(default=None, max_length=50)
+    education: list[str] = Field(default_factory=list, max_length=60)
+    skills: list[str] = Field(default_factory=list, max_length=150)
+    work_history: list[str] = Field(default_factory=list, max_length=250)
+
+    @field_validator("first_name", "last_name", "email", "phone")
+    @classmethod
+    def _strip_optional(cls, v: str | None) -> str | None:
+        return _clean_str(v)
+
+    @field_validator("email")
+    @classmethod
+    def _basic_email_shape(cls, v: str | None) -> str | None:
+        if v is not None and ("@" not in v or " " in v):
+            raise ValueError("Enter a valid email address")
+        return v
+
+    @field_validator("education", "skills", "work_history")
+    @classmethod
+    def _strip_list(cls, v: list[str]) -> list[str]:
+        cleaned = _clean_list(v)
+        if any(len(item) > 600 for item in cleaned):
+            raise ValueError("Each entry must be 600 characters or fewer")
+        return cleaned
+
+
+ApplicationStatus = Literal["filled", "applied", "interviewing", "offer", "rejected"]
+
+
+def _check_http_url(v: str | None) -> str | None:
+    v = _clean_str(v)
+    if v is not None and not v.lower().startswith(("http://", "https://")):
+        raise ValueError("URL must start with http:// or https://")
+    return v
+
+
+class ApplicationCreate(BaseModel):
+    company: str = Field(min_length=1, max_length=200)
+    role: str | None = Field(default=None, max_length=300)
+    url: str | None = Field(default=None, max_length=2048)
+    status: ApplicationStatus = "applied"
+    notes: str | None = Field(default=None, max_length=4000)
+
+    @field_validator("company")
+    @classmethod
+    def _company(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Company is required")
+        return v
+
+    @field_validator("role", "notes")
+    @classmethod
+    def _strip_text(cls, v: str | None) -> str | None:
+        return _clean_str(v)
+
+    @field_validator("url")
+    @classmethod
+    def _url(cls, v: str | None) -> str | None:
+        return _check_http_url(v)
+
+
+class ApplicationUpdate(BaseModel):
+    company: str | None = Field(default=None, min_length=1, max_length=200)
+    role: str | None = Field(default=None, max_length=300)
+    url: str | None = Field(default=None, max_length=2048)
+    status: ApplicationStatus | None = None
+    notes: str | None = Field(default=None, max_length=4000)
+
+    @field_validator("company")
+    @classmethod
+    def _company(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        v = v.strip()
+        if not v:
+            raise ValueError("Company can't be blank")
+        return v
+
+    @field_validator("role", "notes")
+    @classmethod
+    def _strip_text(cls, v: str | None) -> str | None:
+        return _clean_str(v)
+
+    @field_validator("url")
+    @classmethod
+    def _url(cls, v: str | None) -> str | None:
+        return _check_http_url(v)
+
+
+class ApplicationOut(BaseModel):
+    id: int
+    company: str
+    role: str | None = None
+    url: str | None = None
+    status: ApplicationStatus
+    notes: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

@@ -1,10 +1,12 @@
+import json
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import EeoProfile, User
+from app.models import EeoProfile, ResumeProfile, User
 from app.routers.resume import resume_profile_to_schema
-from app.schemas import EeoProfileIn, EeoProfileOut, FullProfileOut, ResumeProfileOut
+from app.schemas import EeoProfileIn, EeoProfileOut, FullProfileOut, ResumeProfileIn, ResumeProfileOut
 from app.deps import get_current_user
 
 router = APIRouter(prefix="/profile", tags=["profile"])
@@ -50,3 +52,28 @@ def update_demographics(
     db.refresh(profile)
 
     return EeoProfileOut.model_validate(profile)
+
+
+@router.put("/resume", response_model=ResumeProfileOut)
+def update_resume_profile(
+    payload: ResumeProfileIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    profile = current_user.resume_profile
+    if profile is None:
+        profile = ResumeProfile(user_id=current_user.id)
+        db.add(profile)
+
+    profile.first_name = payload.first_name
+    profile.last_name = payload.last_name
+    profile.email = payload.email
+    profile.phone = payload.phone
+    profile.education = json.dumps(payload.education)
+    profile.skills = json.dumps(payload.skills)
+    profile.work_history = json.dumps(payload.work_history)
+
+    db.commit()
+    db.refresh(profile)
+
+    return resume_profile_to_schema(profile)

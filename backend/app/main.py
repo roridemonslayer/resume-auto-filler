@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import Base, engine
-from app.routers import auth, profile, resume
+from app.routers import applications, auth, profile, resume
 
 Base.metadata.create_all(bind=engine)
 
@@ -22,6 +22,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(resume.router)
 app.include_router(profile.router)
+app.include_router(applications.router)
 
 
 @app.get("/health")

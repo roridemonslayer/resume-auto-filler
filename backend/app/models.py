@@ -24,6 +24,9 @@ class User(Base):
     eeo_profile: Mapped["EeoProfile"] = relationship(
         back_populates="user", uselist=False, cascade="all, delete-orphan"
     )
+    applications: Mapped[list["Application"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class ResumeProfile(Base):
@@ -70,3 +73,25 @@ class EeoProfile(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
     user: Mapped["User"] = relationship(back_populates="eeo_profile")
+
+
+class Application(Base):
+    """One job application the user is tracking. Rows are created either
+    by the extension when it fills a page (status "filled") or manually
+    from the web app."""
+
+    __tablename__ = "applications"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True, nullable=False)
+
+    company: Mapped[str] = mapped_column(String(200), nullable=False)
+    role: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="filled")
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+
+    user: Mapped["User"] = relationship(back_populates="applications")

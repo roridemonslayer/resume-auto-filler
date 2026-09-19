@@ -51,6 +51,11 @@ The API is now at `http://localhost:8000`. Interactive docs at `http://localhost
 | POST   | `/resume/upload`       | yes  | Upload a PDF, parse it, store the resume fields |
 | GET    | `/profile/me`          | yes  | Fetch resume fields + EEO fields, merged        |
 | PUT    | `/profile/demographics`| yes  | Set voluntary self-ID (veteran/gender/etc.)     |
+| PUT    | `/profile/resume`      | yes  | Replace the editable resume fields (name, contact, education, experience, skills) |
+| GET    | `/applications`        | yes  | List the user's tracked applications, newest first |
+| POST   | `/applications`        | yes  | Track an application; re-posting the same `url` bumps the existing row instead of duplicating it |
+| PATCH  | `/applications/{id}`   | yes  | Update company/role/url/status/notes             |
+| DELETE | `/applications/{id}`   | yes  | Remove an application                            |
 | GET    | `/health`              | no   | Liveness check                                  |
 
 Authenticated requests need `Authorization: Bearer <token>`.
@@ -79,6 +84,14 @@ Authenticated requests need `Authorization: Bearer <token>`.
   `User` model doesn't need a nullable password column just for this.
 - `google-auth`'s default requests transport needs the `requests` package installed separately --
   it's not pulled in automatically, hence the explicit `requests==2.32.3` pin.
+
+- `PUT /profile/resume` is a full replace: blank strings become `null` and blank list entries are
+  dropped, so the web app's edit form can send exactly what's on screen. It also creates the
+  resume row if the user never uploaded a PDF (`has_resume` then becomes true).
+- Application `status` is one of `filled`, `applied`, `interviewing`, `offer`, `rejected`. The
+  extension logs new fills as `filled`; the web app's manual add uses `applied`. `url` must start
+  with `http://` or `https://` (the web app renders it as a link, so `javascript:` URLs are
+  rejected). Timestamps are naive UTC -- clients must treat them as UTC.
 
 ## Tests
 
