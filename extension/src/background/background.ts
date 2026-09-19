@@ -114,6 +114,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     refreshProfile().then(sendResponse);
     return true;
   }
+  if (message?.type === "SYNC_TOKEN" && typeof message.token === "string") {
+    (async () => {
+      const stored = await chrome.storage.local.get("token");
+      if (stored.token !== message.token) {
+        await chrome.storage.local.set({ token: message.token });
+        await refreshProfile();
+      }
+      sendResponse({ ok: true });
+    })();
+    return true;
+  }
   if (message?.type === "GET_RESUME_FILE") {
     fetchResumeFile().then(sendResponse);
     return true;

@@ -39,6 +39,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshProfile().finally(() => setLoading(false));
   }, [refreshProfile]);
 
+  // Lets the browser extension (whose content script runs on this page) pick up
+  // the session, so Google-only accounts and anyone already signed in here don't
+  // have to log in a second time in the extension popup.
+  useEffect(() => {
+    if (token) window.postMessage({ type: "resumeAutoFiller.token", token }, window.location.origin);
+  }, [token]);
+
   async function login(email: string, password: string) {
     const newToken = await apiLogin(email, password);
     localStorage.setItem(TOKEN_STORAGE_KEY, newToken);

@@ -116,6 +116,14 @@ export default function Dashboard() {
   const sectionIds = useRef(SECTIONS.map((s) => s.id)).current;
   const activeSection = useActiveSection(sectionIds);
   const tracker = useApplications(token);
+
+  // The extension popup deep-links to sections (/dashboard#applications).
+  useEffect(() => {
+    const id = window.location.hash.slice(1);
+    if (!id) return;
+    const t = setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }), 500);
+    return () => clearTimeout(t);
+  }, []);
   const [showWelcome, setShowWelcome] = useState(
     () => sessionStorage.getItem("resumeAutoFiller.justSignedUp") === "1",
   );

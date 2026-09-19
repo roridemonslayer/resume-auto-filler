@@ -778,6 +778,25 @@ function startWatching() {
   observer.observe(document.documentElement, { childList: true, subtree: true });
 }
 
+// On the web app itself, hand its login token to the extension. Only the exact
+// web app origin is trusted (keep in sync with WEBAPP_URL in popup/api.ts).
+const WEBAPP_ORIGIN = "http://localhost:5173";
+const WEBAPP_TOKEN_KEY = "resumeAutoFiller.token";
+
+function syncTokenFromWebapp() {
+  if (location.origin !== WEBAPP_ORIGIN) return;
+  const push = (token: unknown) => {
+    if (typeof token === "string" && token) chrome.runtime.sendMessage({ type: "SYNC_TOKEN", token });
+  };
+  push(localStorage.getItem(WEBAPP_TOKEN_KEY));
+  window.addEventListener("message", (event) => {
+    if (event.source === window && event.origin === WEBAPP_ORIGIN && event.data?.type === "resumeAutoFiller.token") {
+      push(event.data.token);
+    }
+  });
+}
+
+syncTokenFromWebapp();
 checkPendingSubmission();
 
 if (document.body) {
