@@ -1,7 +1,18 @@
 import { animate, motion, useMotionValue, useTransform } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import Nav from "../components/Nav";
-import { DocumentIcon, IdBadgeIcon, OverviewIcon, PuzzleIcon } from "../components/Icons";
+import ApplicationTracker, { useApplications } from "../components/ApplicationTracker";
+import {
+  ArrowUpRightIcon,
+  BoardIcon,
+  DocumentIcon,
+  IdBadgeIcon,
+  OverviewIcon,
+  PuzzleIcon,
+  UploadIcon,
+  UserIcon,
+} from "../components/Icons";
+import ProfileEditor from "../components/ProfileEditor";
 import { useAuth } from "../context/AuthContext";
 import { updateDemographics, uploadResume } from "../lib/api";
 import { EEO_FIELDS } from "../lib/eeoOptions";
@@ -10,6 +21,8 @@ import type { EeoProfile } from "../lib/types";
 const SECTIONS = [
   { id: "overview", label: "Overview", Icon: OverviewIcon },
   { id: "resume", label: "Resume", Icon: DocumentIcon },
+  { id: "details", label: "Profile details", Icon: UserIcon },
+  { id: "applications", label: "Applications", Icon: BoardIcon },
   { id: "eeo", label: "Voluntary info", Icon: IdBadgeIcon },
   { id: "extension", label: "Extension", Icon: PuzzleIcon },
 ];
@@ -25,7 +38,7 @@ function cardMotion(index: number) {
     initial: { opacity: 0, y: 16 },
     animate: { opacity: 1, y: 0 },
     transition: { duration: 0.35, delay: index * 0.08, ease: "easeOut" as const },
-    whileHover: { y: -3, boxShadow: "0 12px 28px rgba(15,107,60,0.12)" },
+    whileHover: { y: -3 },
   };
 }
 
@@ -96,6 +109,15 @@ export default function Dashboard() {
   const [uploading, setUploading] = useState(false);
   const sectionIds = useRef(SECTIONS.map((s) => s.id)).current;
   const activeSection = useActiveSection(sectionIds);
+  const tracker = useApplications(token);
+  const [showWelcome, setShowWelcome] = useState(
+    () => sessionStorage.getItem("resumeAutoFiller.justSignedUp") === "1",
+  );
+
+  function dismissWelcome() {
+    sessionStorage.removeItem("resumeAutoFiller.justSignedUp");
+    setShowWelcome(false);
+  }
 
   const [demographics, setDemographics] = useState<EeoProfile>(
     profile?.eeo ?? {
@@ -158,6 +180,11 @@ export default function Dashboard() {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  const firstName = resume?.first_name;
+  const eeoTotal = Object.keys(demographics).length;
+  const interviewingCount = tracker.apps.filter((a) => a.status === "interviewing").length;
+  const offerCount = tracker.apps.filter((a) => a.status === "offer").length;
+
   return (
     <>
       <Nav />
@@ -188,49 +215,99 @@ export default function Dashboard() {
         </nav>
 
         <div className="dashboard-main">
+          {showWelcome && (
+            <motion.div
+              className="alert alert-success"
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}
+            >
+              <span>Account created — welcome to Resume Auto-Filler!</span>
+              <button className="btn-ghost" onClick={dismissWelcome}>
+                Dismiss
+              </button>
+            </motion.div>
+          )}
+
           <div id="overview">
-            <div className="dashboard-header">
-              <h1>Your profile</h1>
-            </div>
+            <span className="eyebrow">Overview</span>
+            <h1 className="dash-title">
+              {firstName ? (
+                <>
+                  Hey, <span className="accent">{firstName}.</span>
+                </>
+              ) : (
+                <>
+                  Your <span className="accent">profile.</span>
+                </>
+              )}
+            </h1>
+            <p className="dash-sub">This is everything the extension will fill in for you.</p>
 
             <div className="stat-grid">
-              <motion.div className="stat-card" whileHover={{ y: -3, boxShadow: "0 12px 28px rgba(15,107,60,0.12)" }}>
+              <motion.div className="stat-card tone-lime" whileHover={{ y: -6 }}>
                 <div className="stat-label">Skills detected</div>
                 <div className="stat-value">
                   <CountUp value={resume?.skills.length ?? 0} />
                 </div>
                 <div className="stat-sub">from your uploaded resume</div>
               </motion.div>
-              <motion.div className="stat-card" whileHover={{ y: -3, boxShadow: "0 12px 28px rgba(15,107,60,0.12)" }}>
-                <div className="stat-label">Profile completeness</div>
+              <motion.div className="stat-card tone-lilac" whileHover={{ y: -6 }}>
+                <div className="stat-label">Profile complete</div>
                 <div className="stat-value">
                   {profile?.has_resume ? <CountUp value={profileCompleteness} suffix="%" /> : "--"}
                 </div>
+                <div className="meter">
+                  <motion.span
+                    initial={{ width: 0 }}
+                    animate={{ width: `${profile?.has_resume ? profileCompleteness : 0}%` }}
+                    transition={{ duration: 0.8, ease: "easeOut" }}
+                  />
+                </div>
                 <div className="stat-sub">name, email, phone on file</div>
               </motion.div>
-              <motion.div className="stat-card" whileHover={{ y: -3, boxShadow: "0 12px 28px rgba(15,107,60,0.12)" }}>
+              <motion.div className="stat-card tone-peach" whileHover={{ y: -6 }}>
                 <div className="stat-label">Voluntary info set</div>
                 <div className="stat-value">
-                  <CountUp value={eeoSetCount} suffix="/5" />
+                  <CountUp value={eeoSetCount} suffix={`/${eeoTotal}`} />
+                </div>
+                <div className="dots" aria-hidden="true">
+                  {Array.from({ length: eeoTotal }, (_, i) => (
+                    <span key={i} className={i < eeoSetCount ? "on" : ""} />
+                  ))}
                 </div>
                 <div className="stat-sub">EEO fields answered</div>
+              </motion.div>
+              <motion.div className="stat-card tone-sky" whileHover={{ y: -6 }}>
+                <div className="stat-label">Applications</div>
+                <div className="stat-value">
+                  <CountUp value={tracker.apps.length} />
+                </div>
+                <div className="stat-sub">
+                  {tracker.apps.length === 0
+                    ? "tracked once you fill or add one"
+                    : `${interviewingCount} interviewing · ${offerCount} offer${offerCount === 1 ? "" : "s"}`}
+                </div>
               </motion.div>
             </div>
           </div>
 
           <motion.div id="resume" className="card" {...cardMotion(0)}>
-            <div className="card-heading">
-              <h2>Resume</h2>
+            <div className="dash-card-head">
+              <div>
+                <span className="eyebrow">01 — Resume</span>
+                <h2>{profile?.has_resume ? "Your resume" : "Upload your resume"}</h2>
+              </div>
             </div>
 
             {profile?.has_resume && resume ? (
               <div className="profile-summary">
                 <div className="avatar-lg">{initials(resume.first_name, resume.last_name)}</div>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: 16 }}>
+                  <div className="profile-name">
                     {resume.first_name} {resume.last_name}
                   </div>
-                  <div style={{ fontSize: 13.5, color: "var(--muted)" }}>
+                  <div className="profile-contact">
                     {resume.email || "No email found"} · {resume.phone || "No phone found"}
                   </div>
                   <div className="skill-chip-row">
@@ -240,35 +317,67 @@ export default function Dashboard() {
                       </span>
                     ))}
                     {resume.skills.length > 8 && (
-                      <span className="skill-chip">+{resume.skills.length - 8} more</span>
+                      <span className="skill-chip skill-chip-more">+{resume.skills.length - 8} more</span>
                     )}
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="empty-hint">
-                <div className="icon">📄</div>
-                No resume uploaded yet.
-              </div>
+              <div className="empty-hint">No resume uploaded yet — drop a PDF below to get started.</div>
             )}
 
-            <div className="field" style={{ marginTop: 20 }}>
-              <label htmlFor="resume-file">
-                {profile?.has_resume ? "Replace resume (PDF)" : "Upload resume (PDF)"}
-              </label>
+            <label className={`dropzone${uploading ? " busy" : ""}`} htmlFor="resume-file">
+              <span className="dropzone-icon">
+                <UploadIcon />
+              </span>
+              <span className="dropzone-title">
+                {uploading ? "Parsing your resume…" : profile?.has_resume ? "Replace your resume" : "Drop your resume here"}
+              </span>
+              <span className="dropzone-sub">PDF only — click to browse or drag a file in</span>
               <input id="resume-file" type="file" accept="application/pdf" onChange={handleUpload} disabled={uploading} />
-            </div>
+            </label>
 
-            {uploadError && <div className="alert alert-error">{uploadError}</div>}
-            {uploadStatus && <div className="alert alert-success">{uploadStatus}</div>}
+            {uploadError && <div className="alert alert-error" style={{ marginTop: 16 }}>{uploadError}</div>}
+            {uploadStatus && <div className="alert alert-success" style={{ marginTop: 16 }}>{uploadStatus}</div>}
           </motion.div>
 
-          <motion.div id="eeo" className="card" {...cardMotion(1)}>
-            <div className="card-heading">
-              <h2>Voluntary identity information</h2>
+          <motion.div id="details" className="card" {...cardMotion(1)}>
+            <div className="dash-card-head">
+              <div>
+                <span className="eyebrow">02 — Profile details</span>
+                <h2>What we parsed</h2>
+              </div>
+            </div>
+            <p style={{ marginBottom: 26, fontSize: 15.5, maxWidth: "62ch" }}>
+              Everything the extension can fill in, straight from your resume. Fix anything the
+              parser got wrong, or add what it missed.
+            </p>
+            <ProfileEditor token={token} resume={resume} hasResume={Boolean(profile?.has_resume)} onSaved={refreshProfile} />
+          </motion.div>
+
+          <motion.div id="applications" className="card" {...cardMotion(2)}>
+            <div className="dash-card-head">
+              <div>
+                <span className="eyebrow">03 — Applications</span>
+                <h2>Where you've applied</h2>
+              </div>
+            </div>
+            <p style={{ marginBottom: 26, fontSize: 15.5, maxWidth: "62ch" }}>
+              Every page you fill with the extension is logged here. Drag a card between columns as
+              things move along.
+            </p>
+            <ApplicationTracker tracker={tracker} />
+          </motion.div>
+
+          <motion.div id="eeo" className="card" {...cardMotion(3)}>
+            <div className="dash-card-head">
+              <div>
+                <span className="eyebrow">04 — Voluntary info</span>
+                <h2>Voluntary identity information</h2>
+              </div>
               <span className="badge">Optional</span>
             </div>
-            <p style={{ marginBottom: 20, fontSize: 13.5 }}>
+            <p style={{ marginBottom: 26, fontSize: 15.5, maxWidth: "62ch" }}>
               Some applications include optional EEO (Equal Employment Opportunity) questions.
               Answering here lets the extension complete them for you. Every field is unset by
               default -- leave any blank to skip it, or choose "I don't wish to answer" if you want
@@ -305,26 +414,30 @@ export default function Dashboard() {
               {demographicsStatus && <div className="alert alert-success">{demographicsStatus}</div>}
 
               <button className="btn btn-primary" disabled={savingDemographics} type="submit">
-                {savingDemographics ? "Saving..." : "Save"}
+                {savingDemographics ? "Saving..." : "Save changes"}
               </button>
             </form>
           </motion.div>
 
-          <motion.div id="extension" className="card" {...cardMotion(2)}>
-            <div className="card-heading">
-              <h2>Install the extension</h2>
+          <motion.div id="extension" className="card extension-card" {...cardMotion(4)}>
+            <div>
+              <span className="eyebrow">05 — Extension</span>
+              <h2>Install the extension.</h2>
+              <p>
+                The Chrome extension reads this profile to fill applications on any page. Log in
+                with the same account there.
+              </p>
             </div>
-            <p style={{ marginBottom: 14 }}>
-              The Chrome extension reads this profile to fill applications on any page. Log in with
-              the same account there.
-            </p>
             <a
-              className="btn btn-secondary"
+              className="btn btn-dark"
               href="https://github.com/roridemonslayer/resume-auto-filler#installation-development"
               target="_blank"
               rel="noreferrer"
             >
-              Installation instructions →
+              Installation instructions
+              <span className="btn-icon">
+                <ArrowUpRightIcon />
+              </span>
             </a>
           </motion.div>
         </div>

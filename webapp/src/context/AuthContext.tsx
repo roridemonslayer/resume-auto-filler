@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { fetchProfile, login as apiLogin, signup as apiSignup } from "../lib/api";
+import { fetchProfile, login as apiLogin, loginWithGoogle as apiLoginWithGoogle, signup as apiSignup } from "../lib/api";
 import type { FullProfile } from "../lib/types";
 
 const TOKEN_STORAGE_KEY = "resumeAutoFiller.token";
@@ -10,6 +10,7 @@ interface AuthContextValue {
   profile: FullProfile | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: (credential: string) => Promise<{ isNewUser: boolean }>;
   signup: (email: string, password: string) => Promise<void>;
   logout: () => void;
   refreshProfile: () => Promise<void>;
@@ -45,6 +46,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await refreshProfile();
   }
 
+  async function loginWithGoogle(credential: string) {
+    const { token: newToken, isNewUser } = await apiLoginWithGoogle(credential);
+    localStorage.setItem(TOKEN_STORAGE_KEY, newToken);
+    setToken(newToken);
+    await refreshProfile();
+    return { isNewUser };
+  }
+
   async function signup(email: string, password: string) {
     await apiSignup(email, password);
     await login(email, password);
@@ -57,7 +66,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ token, profile, loading, login, signup, logout, refreshProfile }}>
+    <AuthContext.Provider
+      value={{ token, profile, loading, login, loginWithGoogle, signup, logout, refreshProfile }}
+    >
       {children}
     </AuthContext.Provider>
   );

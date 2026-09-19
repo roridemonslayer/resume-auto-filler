@@ -21,3 +21,24 @@ export interface FullProfile {
   eeo: EeoProfile;
   has_resume: boolean;
 }
+
+export type ApplicationStatus = "filled" | "applied" | "interviewing" | "offer" | "rejected";
+
+export interface Application {
+  id: number;
+  company: string;
+  role: string | null;
+  url: string | null;
+  status: ApplicationStatus;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ApplicationInput {
+  company: string;
+  role?: string | null;
+  url?: string | null;
+  status?: ApplicationStatus;
+  notes?: string | null;
+}

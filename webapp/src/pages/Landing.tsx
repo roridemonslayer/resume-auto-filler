@@ -3,6 +3,7 @@ import { useRef } from "react";
 import { Link } from "react-router-dom";
 import Nav from "../components/Nav";
 import { OptionalToggleDiagram, ResumeToFieldsDiagram, ReviewSubmitDiagram } from "../components/Diagrams";
+import { ArrowUpRightIcon } from "../components/Icons";
 
 const STEPS = [
   {
@@ -37,30 +38,71 @@ const CURTAIN_ROWS = [
   },
 ];
 
+const FACTS = [
+  { tone: "tone-lime", num: "1", text: "click to fill a whole application" },
+  { tone: "tone-lilac", num: "0", text: "applications submitted on your behalf" },
+  { tone: "tone-peach", num: "5", text: "voluntary EEO fields, every one opt-in" },
+];
+
+const MARQUEE_ITEMS = [
+  "Name",
+  "Email",
+  "Phone",
+  "Education",
+  "Skills",
+  "Work history",
+  "Veteran status",
+  "Gender",
+  "Race / ethnicity",
+  "Disability status",
+];
+
 const fadeUp = {
-  hidden: { opacity: 0, y: 24 },
+  hidden: { opacity: 0, y: 28 },
   show: { opacity: 1, y: 0 },
 };
 
-function StepsGrid() {
+function Marquee() {
+  const items = [...MARQUEE_ITEMS, ...MARQUEE_ITEMS];
   return (
-    <div className="steps-grid">
-      {STEPS.map((step, i) => (
-        <motion.div
-          className="step-card"
-          key={step.title}
-          initial="hidden"
-          whileInView="show"
-          viewport={{ once: true, margin: "-60px" }}
-          variants={fadeUp}
-          transition={{ duration: 0.45, delay: i * 0.08, ease: "easeOut" }}
-          whileHover={{ y: -6, boxShadow: "0 12px 32px rgba(15,107,60,0.12)" }}
-        >
-          <div className="step-number">{i + 1}</div>
-          <h3>{step.title}</h3>
-          <p>{step.body}</p>
-        </motion.div>
-      ))}
+    <div className="marquee-wrap" aria-hidden="true">
+      <div className="marquee">
+        <div className="marquee-track">
+          {[0, 1].map((copy) =>
+            items.map((item, i) => (
+              <span className="marquee-item" key={`${copy}-${i}`}>
+                {item}
+                <span className="marquee-star">✦</span>
+              </span>
+            )),
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MockBrowser() {
+  return (
+    <div className="mock-browser">
+      <div className="mock-browser-bar">
+        <span className="mock-dot" />
+        <span className="mock-dot" />
+        <span className="mock-dot" />
+        <span className="mock-url">jobs.example.com/apply</span>
+      </div>
+      <div className="mock-browser-body">
+        <div className="mock-title">Apply for this role</div>
+        <div className="mock-label">Full name</div>
+        <div className="mock-field" style={{ "--w": "46%", "--d": "0.4s" } as React.CSSProperties} />
+        <div className="mock-label">Email</div>
+        <div className="mock-field" style={{ "--w": "62%", "--d": "0.9s" } as React.CSSProperties} />
+        <div className="mock-label">Phone</div>
+        <div className="mock-field" style={{ "--w": "38%", "--d": "1.4s" } as React.CSSProperties} />
+        <div className="mock-label">Veteran status</div>
+        <div className="mock-field" style={{ "--w": "54%", "--d": "1.9s" } as React.CSSProperties} />
+        <span className="mock-pill">✓ Fill Application</span>
+      </div>
     </div>
   );
 }
@@ -68,7 +110,7 @@ function StepsGrid() {
 function CurtainSection() {
   const ref = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "start 40%"] });
-  const radius = useTransform(scrollYProgress, [0, 1], [56, 0]);
+  const radius = useTransform(scrollYProgress, [0, 1], [72, 0]);
 
   return (
     <motion.section className="curtain-section" ref={ref} style={{ borderTopLeftRadius: radius, borderTopRightRadius: radius }}>
@@ -86,7 +128,7 @@ function CurtainSection() {
             whileInView="show"
             viewport={{ once: true, margin: "-80px" }}
             variants={fadeUp}
-            transition={{ duration: 0.5, delay: i * 0.06, ease: "easeOut" }}
+            transition={{ duration: 0.55, delay: i * 0.06, ease: "easeOut" }}
           >
             <div>
               <h3>{row.title}</h3>
@@ -107,76 +149,114 @@ export default function Landing() {
     <>
       <Nav />
 
-      <section className="hero">
-        <div className="hero-blob hero-blob-1" />
-        <div className="hero-blob hero-blob-2" />
-        <div className="container hero-grid">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
+      <header className="hero">
+        <div className="hero-glow" />
+        <div className="container hero-inner">
+          <motion.span
+            className="badge"
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.55, ease: "easeOut" }}
+            transition={{ duration: 0.45, ease: "easeOut" }}
           >
-            <span className="badge badge-dark">
-              <span className="badge-dot" />
-              Free & open source
+            <span className="badge-dot" />
+            Free & open source
+          </motion.span>
+
+          <motion.h1
+            className="hero-title"
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <span className="line">Stop retyping</span>
+            <span className="line">your resume.</span>
+            <span className="line">
+              <span className="accent">Click once.</span>
             </span>
-            <h1 style={{ marginTop: 16 }}>
-              Stop retyping your resume. <span className="accent">Click once.</span>
-            </h1>
-            <p className="lede">
-              Upload your resume and your voluntary info once. Then on any job application, click
-              one button and watch the fields fill themselves -- name, contact info, education,
-              skills, even the EEO questions.
-            </p>
-            <div className="hero-cta-row">
-              <Link to="/signup" className="btn btn-primary">
-                Get started free
-              </Link>
-              <a href="#how-it-works" className="btn btn-outline-dark">
-                See how it works
-              </a>
-            </div>
-          </motion.div>
+          </motion.h1>
 
-          <motion.div
-            initial={{ opacity: 0, scale: 0.94 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.6, delay: 0.15, ease: "easeOut" }}
-          >
-            <div className="mock-browser">
-              <div className="mock-browser-bar">
-                <span className="mock-dot" />
-                <span className="mock-dot" />
-                <span className="mock-dot" />
+          <div className="hero-bottom">
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.25, ease: "easeOut" }}
+            >
+              <p className="lede">
+                Upload your resume and your voluntary info once. Then on any job application, click
+                one button and watch the fields fill themselves -- name, contact info, education,
+                skills, even the EEO questions.
+              </p>
+              <div className="hero-cta-row">
+                <Link to="/signup" className="btn btn-primary">
+                  Get started free
+                  <span className="btn-icon">
+                    <ArrowUpRightIcon />
+                  </span>
+                </Link>
+                <a href="#how-it-works" className="btn btn-secondary">
+                  See how it works
+                </a>
               </div>
-              <div className="mock-browser-body">
-                <div className="mock-line" style={{ width: "40%" }} />
-                <div className="mock-field" />
-                <div className="mock-field" style={{ width: "80%" }} />
-                <div className="mock-field" style={{ width: "60%" }} />
-                <span className="mock-pill">✓ Fill Application</span>
-              </div>
-            </div>
-          </motion.div>
-        </div>
+            </motion.div>
 
-        <div className="wave-divider">
-          <svg viewBox="0 0 1440 80" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-            <path
-              d="M0,32 C240,80 480,0 720,24 C960,48 1200,88 1440,40 L1440,80 L0,80 Z"
-              fill="var(--bg)"
-            />
-          </svg>
+            <motion.div
+              initial={{ opacity: 0, y: 40, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.7, delay: 0.35, ease: "easeOut" }}
+            >
+              <MockBrowser />
+            </motion.div>
+          </div>
         </div>
-      </section>
+      </header>
+
+      <Marquee />
 
       <section className="section" id="how-it-works">
         <div className="container">
           <div className="section-heading">
-            <h2>How it works</h2>
-            <p>Three steps, then you never copy-paste your resume again.</p>
+            <span className="eyebrow">How it works</span>
+            <h2>Three steps. Then never again.</h2>
+            <p>Set it up once, and every application after that is a single click.</p>
           </div>
-          <StepsGrid />
+
+          <div className="steps-list">
+            {STEPS.map((step, i) => (
+              <motion.div
+                className="step-row"
+                key={step.title}
+                initial="hidden"
+                whileInView="show"
+                viewport={{ once: true, margin: "-60px" }}
+                variants={fadeUp}
+                transition={{ duration: 0.5, delay: i * 0.06, ease: "easeOut" }}
+              >
+                <div className="step-number">0{i + 1}</div>
+                <h3>{step.title}</h3>
+                <p>{step.body}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="container" style={{ paddingBottom: 96 }}>
+        <div className="facts-grid">
+          {FACTS.map((fact, i) => (
+            <motion.div
+              className={`fact-tile ${fact.tone}`}
+              key={fact.text}
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true, margin: "-60px" }}
+              variants={fadeUp}
+              transition={{ duration: 0.5, delay: i * 0.08, ease: "easeOut" }}
+              whileHover={{ y: -8 }}
+            >
+              <div className="fact-num">{fact.num}</div>
+              <p>{fact.text}</p>
+            </motion.div>
+          ))}
         </div>
       </section>
 
@@ -186,36 +266,41 @@ export default function Landing() {
         <div className="container">
           <motion.div
             className="card privacy-card"
-            initial={{ opacity: 0, y: 24 }}
+            initial={{ opacity: 0, y: 28 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-60px" }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
+            transition={{ duration: 0.55, ease: "easeOut" }}
           >
-            <h2 style={{ fontSize: 20, marginBottom: 12 }}>Where your data actually goes</h2>
-            <p style={{ marginBottom: 10 }}>
-              Your resume PDF is uploaded over HTTPS, parsed in memory, and discarded -- the raw
-              file is never stored. What we keep is the structured fields extracted from it, plus
-              any EEO info you choose to enter, so you don't have to re-upload every time.
-            </p>
-            <p>
-              Filling itself happens entirely in your browser: the extension reads your stored
-              profile and writes it into the page. No ads, no tracking, no selling data.
-            </p>
+            <h2>Where your data actually goes.</h2>
+            <div>
+              <p>
+                Your resume PDF is uploaded over HTTPS, parsed in memory, and discarded -- the raw
+                file is never stored. What we keep is the structured fields extracted from it, plus
+                any EEO info you choose to enter, so you don't have to re-upload every time.
+              </p>
+              <p>
+                Filling itself happens entirely in your browser: the extension reads your stored
+                profile and writes it into the page. No ads, no tracking, no selling data.
+              </p>
+            </div>
           </motion.div>
         </div>
       </section>
 
       <section className="statement-band">
         <div className="container">
-          <h2>Your resume, typed once. Applied everywhere.</h2>
-          <Link to="/signup" className="btn btn-primary">
+          <h2>Typed once. Applied everywhere.</h2>
+          <Link to="/signup" className="btn btn-dark">
             Get started free
+            <span className="btn-icon">
+              <ArrowUpRightIcon />
+            </span>
           </Link>
         </div>
       </section>
 
       <footer className="footer">
-        <div className="container" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+        <div className="container footer-inner">
           <span>© 2026 Resume Auto-Filler -- MIT licensed</span>
           <a href="https://github.com/roridemonslayer/resume-auto-filler" target="_blank" rel="noreferrer">
             GitHub

@@ -1,11 +1,12 @@
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import GoogleSignInButton, { GOOGLE_SIGNIN_ENABLED } from "../components/GoogleSignInButton";
 import Nav from "../components/Nav";
 import { useAuth } from "../context/AuthContext";
 
 export default function Auth({ mode }: { mode: "login" | "signup" }) {
-  const { login, signup } = useAuth();
+  const { login, loginWithGoogle, signup } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -16,6 +17,11 @@ export default function Auth({ mode }: { mode: "login" | "signup" }) {
 
   const isSignup = mode === "signup";
 
+  function goToRedirect() {
+    const redirectTo = (location.state as { from?: string } | null)?.from ?? "/dashboard";
+    navigate(redirectTo, { replace: true });
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -23,17 +29,35 @@ export default function Auth({ mode }: { mode: "login" | "signup" }) {
     try {
       if (isSignup) {
         await signup(email, password);
+        sessionStorage.setItem("resumeAutoFiller.justSignedUp", "1");
       } else {
         await login(email, password);
       }
-      const redirectTo = (location.state as { from?: string } | null)?.from ?? "/dashboard";
-      navigate(redirectTo, { replace: true });
+      goToRedirect();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setBusy(false);
     }
   }
+
+  const handleGoogleCredential = useCallback(
+    async (credential: string) => {
+      setError(null);
+      setBusy(true);
+      try {
+        const { isNewUser } = await loginWithGoogle(credential);
+        if (isNewUser) sessionStorage.setItem("resumeAutoFiller.justSignedUp", "1");
+        goToRedirect();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Google sign-in failed");
+      } finally {
+        setBusy(false);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [loginWithGoogle],
+  );
 
   return (
     <>
@@ -82,6 +106,15 @@ export default function Auth({ mode }: { mode: "login" | "signup" }) {
               {busy ? "Please wait..." : isSignup ? "Sign up" : "Log in"}
             </button>
           </form>
+
+          {GOOGLE_SIGNIN_ENABLED && (
+            <>
+              <div className="auth-divider">
+                <span>or</span>
+              </div>
+              <GoogleSignInButton onCredential={handleGoogleCredential} />
+            </>
+          )}
 
           <p style={{ marginTop: 18, fontSize: 13.5, textAlign: "center" }}>
             {isSignup ? (

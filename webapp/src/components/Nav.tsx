@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
+import { ArrowUpRightIcon, MoonIcon, SunIcon } from "./Icons";
 
 export default function Nav() {
   const { token, logout } = useAuth();
@@ -8,24 +9,31 @@ export default function Nav() {
 
   return (
     <div className="nav">
-      <div className="container nav-inner">
+      <div className="nav-inner">
         <Link to="/" className="nav-brand">
           <span className="nav-badge">R</span>
-          Resume Auto-Filler
+          <span className="nav-name">Resume Auto-Filler</span>
         </Link>
         <div className="nav-links">
           {token ? (
             <>
-              <Link to="/dashboard">Dashboard</Link>
-              <button className="btn-ghost" onClick={logout}>
+              <Link to="/dashboard" className="nav-link">
+                Dashboard
+              </Link>
+              <button className="btn btn-secondary btn-sm" onClick={logout}>
                 Log out
               </button>
             </>
           ) : (
             <>
-              <Link to="/login">Log in</Link>
-              <Link to="/signup" className="btn btn-primary" style={{ padding: "9px 18px" }}>
+              <Link to="/login" className="nav-link">
+                Log in
+              </Link>
+              <Link to="/signup" className="btn btn-primary btn-sm">
                 Get started
+                <span className="btn-icon" style={{ width: 20, height: 20 }}>
+                  <ArrowUpRightIcon size={12} />
+                </span>
               </Link>
             </>
           )}
@@ -35,7 +43,7 @@ export default function Nav() {
             aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
             title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
           >
-            {theme === "dark" ? "☀️" : "🌙"}
+            {theme === "dark" ? <SunIcon /> : <MoonIcon />}
           </button>
         </div>
       </div>

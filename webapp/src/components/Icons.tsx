@@ -45,3 +45,56 @@ export function PuzzleIcon({ size = 17 }: IconProps) {
     </svg>
   );
 }
+
+export function UploadIcon({ size = 26 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" stroke="currentColor" {...common}>
+      <path d="M12 16V4M7 9l5-5 5 5" />
+      <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+    </svg>
+  );
+}
+
+export function ArrowUpRightIcon({ size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" stroke="currentColor" {...common} strokeWidth={2}>
+      <path d="M6 14L14 6M7 6h7v7" />
+    </svg>
+  );
+}
+
+export function SunIcon({ size = 17 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" stroke="currentColor" {...common}>
+      <circle cx="10" cy="10" r="3.4" />
+      <path d="M10 2.5v2M10 15.5v2M2.5 10h2M15.5 10h2M4.7 4.7l1.4 1.4M13.9 13.9l1.4 1.4M4.7 15.3l1.4-1.4M13.9 6.1l1.4-1.4" />
+    </svg>
+  );
+}
+
+export function MoonIcon({ size = 17 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" stroke="currentColor" {...common}>
+      <path d="M16.5 11.6A6.6 6.6 0 0 1 8.4 3.5a6.6 6.6 0 1 0 8.1 8.1z" />
+    </svg>
+  );
+}
+
+export function UserIcon({ size = 17 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" stroke="currentColor" {...common}>
+      <circle cx="10" cy="7" r="3.2" />
+      <path d="M3.8 16.5c0.8-3 3.3-4.5 6.2-4.5s5.4 1.5 6.2 4.5" />
+    </svg>
+  );
+}
+
+export function BoardIcon({ size = 17 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" stroke="currentColor" {...common}>
+      <rect x="3" y="3.5" width="4" height="13" rx="1.2" />
+      <rect x="8.5" y="3.5" width="4" height="8" rx="1.2" />
+      <rect x="14" y="3.5" width="3" height="10.5" rx="1.2" />
+    </svg>
+  );
+}
