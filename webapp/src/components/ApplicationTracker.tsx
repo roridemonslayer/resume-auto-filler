@@ -5,7 +5,7 @@ import type { Application, ApplicationInput, ApplicationStatus } from "../lib/ty
 import { ArrowUpRightIcon } from "./Icons";
 
 export const STATUS_COLUMNS: Array<{ id: ApplicationStatus; label: string; empty: string }> = [
-  { id: "filled", label: "Filled", empty: "Pages you fill with the extension land here" },
+  { id: "filled", label: "Filled", empty: "Pages you fill land here, then move to Applied when you submit" },
   { id: "applied", label: "Applied", empty: "Move a card here once you submit" },
   { id: "interviewing", label: "Interviewing", empty: "Nothing yet" },
   { id: "offer", label: "Offer", empty: "Fingers crossed" },
@@ -159,6 +159,11 @@ function AppCard({ app, tracker }: { app: Application; tracker: Tracker }) {
             <ArrowUpRightIcon size={14} />
           </a>
         )}
+        {app.status === "filled" && (
+          <button className="text-btn accent" type="button" onClick={() => tracker.patch(app.id, { status: "applied" })}>
+            Mark applied
+          </button>
+        )}
         <button className="text-btn" type="button" onClick={startEdit}>
           Edit
         </button>
@@ -180,6 +185,7 @@ export default function ApplicationTracker({ tracker }: { tracker: Tracker }) {
   const [role, setRole] = useState("");
   const [url, setUrl] = useState("");
   const [adding, setAdding] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [overColumn, setOverColumn] = useState<ApplicationStatus | null>(null);
 
@@ -193,6 +199,7 @@ export default function ApplicationTracker({ tracker }: { tracker: Tracker }) {
       setCompany("");
       setRole("");
       setUrl("");
+      setShowAdd(false);
     } catch (err) {
       setFormError(errorMessage(err, "Couldn't add that application"));
     } finally {
@@ -210,21 +217,27 @@ export default function ApplicationTracker({ tracker }: { tracker: Tracker }) {
 
   return (
     <div>
-      <form className="add-app" onSubmit={handleAdd}>
-        <input aria-label="Company" placeholder="Company" value={company} onChange={(e) => setCompany(e.target.value)} required />
-        <input aria-label="Role" placeholder="Role (optional)" value={role} onChange={(e) => setRole(e.target.value)} />
-        <input aria-label="Posting link" placeholder="Link (optional)" value={url} onChange={(e) => setUrl(e.target.value)} />
-        <button className="btn btn-primary btn-sm" type="submit" disabled={adding || !company.trim()}>
-          {adding ? "Adding..." : "Add application"}
+      {showAdd ? (
+        <form className="add-app" onSubmit={handleAdd}>
+          <input aria-label="Company" placeholder="Company" value={company} onChange={(e) => setCompany(e.target.value)} required autoFocus />
+          <input aria-label="Role" placeholder="Role (optional)" value={role} onChange={(e) => setRole(e.target.value)} />
+          <input aria-label="Posting link" placeholder="Link (optional)" value={url} onChange={(e) => setUrl(e.target.value)} />
+          <button className="btn btn-primary btn-sm" type="submit" disabled={adding || !company.trim()}>
+            {adding ? "Adding..." : "Add application"}
+          </button>
+        </form>
+      ) : (
+        <button className="text-btn add-toggle" type="button" onClick={() => setShowAdd(true)}>
+          + Applied somewhere the extension can't see? Add it manually
         </button>
-      </form>
+      )}
 
       {formError && <div className="alert alert-error">{formError}</div>}
       {error && <div className="alert alert-error">{error}</div>}
 
       {loaded && apps.length === 0 && (
         <p className="board-empty">
-          Nothing tracked yet. Fill an application with the extension and it shows up here automatically, or add one above.
+          Nothing tracked yet. Fill or submit an application with the extension and it shows up here on its own.
         </p>
       )}
 

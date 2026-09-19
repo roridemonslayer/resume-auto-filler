@@ -363,8 +363,9 @@ export default function Dashboard() {
               </div>
             </div>
             <p style={{ marginBottom: 26, fontSize: 15.5, maxWidth: "62ch" }}>
-              Every page you fill with the extension is logged here. Drag a card between columns as
-              things move along.
+              Applications track themselves. The extension logs a page when you fill it and moves it
+              to Applied when it sees your submission confirmation. After that, drag cards between
+              columns as things move along.
             </p>
             <ApplicationTracker tracker={tracker} />
           </motion.div>

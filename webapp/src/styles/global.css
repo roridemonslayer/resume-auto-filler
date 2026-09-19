@@ -1848,3 +1848,15 @@ a {
   color: var(--danger);
   font-weight: 700;
 }
+
+.text-btn.accent {
+  color: var(--ink);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.add-toggle {
+  margin-bottom: 18px;
+  font-size: 13.5px;
+}
