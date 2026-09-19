@@ -37,11 +37,14 @@ is no longer accurate now that the project supports accounts. Here's what's actu
   browser doesn't need to re-parse the PDF every time.
 - Filling itself happens entirely in your browser: the extension reads your stored profile and
   writes it into the page's form fields. What you see or type on the job site is never sent back.
-- **Application tracking:** by default, when you click Fill, the extension also sends that page's
-  URL (with tracking parameters stripped) plus a guessed company name and role title (taken from
-  the page's heading) to your account, so the web app's tracker can list it. Untick "Add filled
-  pages to my application tracker" in the extension popup to turn this off; nothing is sent then.
-  Tracked applications are stored with your account and you can delete them from the web app.
+- **Application tracking:** by default, when you click Fill -- and again when the page shows that
+  your application was submitted -- the extension sends that page's URL (with tracking parameters
+  stripped) plus a guessed company name and role title (taken from the page's heading) to your
+  account, so the web app's tracker can list it. To notice a submission it reads the page's text
+  *locally* for a confirmation like "application received"; that text is never sent anywhere.
+  Untick "Track my applications automatically" in the extension popup to turn all of this off;
+  nothing is sent then. Tracked applications are stored with your account and you can delete them
+  from the web app.
 - We don't sell data, run ads, or add tracking. But "your data leaves your device" is the
   honest description of the current architecture -- treat it accordingly until this is backed
   by a real security review.
@@ -59,8 +62,9 @@ is no longer accurate now that the project supports accounts. Here's what's actu
 - Visual feedback -- filled fields highlight briefly
 - Editable profile -- see the education and experience parsed from your resume, and fix or add
   anything (including skills) in the web app; the extension picks up edits on the next fill
-- Application tracker -- every page you fill is logged to a kanban board (filled / applied /
-  interviewing / offer / rejected) in the web app, with drag-and-drop, notes, and manual adds
+- Automatic application tracker -- pages you fill are logged to a kanban board (filled / applied /
+  interviewing / offer / rejected) in the web app, and move to Applied by themselves when the
+  extension sees your submission confirmation. Drag-and-drop, notes and manual adds still work
 - Free, open source, no premium tier
 
 ## Roadmap

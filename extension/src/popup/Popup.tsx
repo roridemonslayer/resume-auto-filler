@@ -204,7 +204,7 @@ export default function Popup() {
 
             <label className="toggle-row">
               <input type="checkbox" checked={track} onChange={(e) => handleTrackToggle(e.target.checked)} />
-              <span>Add filled pages to my application tracker</span>
+              <span>Track my applications automatically (fills and submissions)</span>
             </label>
 
             <a className="webapp-link" href={WEBAPP_URL} target="_blank" rel="noreferrer">

@@ -365,6 +365,117 @@ function maybeLogApplication(): Promise<boolean> {
   });
 }
 
+// --- submission tracking --------------------------------------------------
+// A submit click or event only means the user *tried* to submit (validation
+// can fail), so it's parked in the background worker and the application is
+// only marked "applied" once a confirmation shows up -- on this page (SPA
+// forms) or on the page the form navigates to. Page text is only read
+// locally; the backend just receives the same URL/company/role as a fill.
+
+const CONFIRM_TEXT =
+  /thank(s| you)[^.]{0,40}(appl|submi)|application (has been |was |is )?(successfully )?(submitted|received|sent)|successfully (applied|submitted)|we('ve| have) received your (application|submission)|you('ve| have) (successfully )?applied/i;
+const CONFIRM_URL = /(thank|confirm|submitted|success|applied|complete)/i;
+const SUBMIT_LABEL = /^(submit( my)?( application)?|apply( now)?|send( my)? application|finish|complete application)$/i;
+const CONFIRM_WATCH_MS = 30000;
+
+let trackingEnabled = true;
+chrome.storage.local.get([TRACK_SETTING_KEY], (result) => {
+  trackingEnabled = result[TRACK_SETTING_KEY] !== false;
+});
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === "local" && changes[TRACK_SETTING_KEY]) {
+    trackingEnabled = changes[TRACK_SETTING_KEY].newValue !== false;
+  }
+});
+
+function bodyText(): string {
+  return (document.body?.innerText ?? "").slice(0, 30000);
+}
+
+function confirmSubmission(payload: unknown) {
+  chrome.runtime.sendMessage({ type: "CONFIRM_SUBMIT", payload }, (response) => {
+    if (!chrome.runtime.lastError && response?.ok) showToast("Application submitted. Tracked as Applied.");
+  });
+}
+
+let stopWatching: (() => void) | null = null;
+
+// Polls for a confirmation. With useBaseline, text that was already on the
+// page when the user clicked submit (e.g. a footer saying "thank you") is
+// ignored, so only newly appearing text or a URL change counts.
+function watchForConfirmation(payload: unknown, durationMs: number, useBaseline: boolean) {
+  stopWatching?.();
+  const startUrl = location.href;
+  const textAlreadyPresent = useBaseline && CONFIRM_TEXT.test(bodyText());
+  const deadline = Date.now() + durationMs;
+
+  const stop = () => {
+    window.clearInterval(timer);
+    if (stopWatching === stop) stopWatching = null;
+  };
+  const timer = window.setInterval(() => {
+    const urlConfirmed = location.href !== startUrl && CONFIRM_URL.test(location.pathname);
+    const textConfirmed = !textAlreadyPresent && CONFIRM_TEXT.test(bodyText());
+    if (urlConfirmed || textConfirmed) {
+      stop();
+      confirmSubmission(payload);
+    } else if (Date.now() > deadline) {
+      stop();
+    }
+  }, 1000);
+  stopWatching = stop;
+}
+
+function armSubmit() {
+  const url = cleanPageUrl();
+  if (!url) return;
+  const payload = { company: guessCompany(), role: guessRole(), url, status: "applied" };
+  chrome.runtime.sendMessage({ type: "SUBMIT_ATTEMPT", payload });
+  watchForConfirmation(payload, CONFIRM_WATCH_MS, true);
+}
+
+function controlLabel(el: Element): string {
+  const raw = el instanceof HTMLInputElement ? el.value : (el.textContent ?? "");
+  return (raw || el.getAttribute("aria-label") || "").replace(/\s+/g, " ").trim();
+}
+
+let submitWatcherStarted = false;
+
+function startSubmitWatcher() {
+  if (submitWatcherStarted) return;
+  submitWatcherStarted = true;
+
+  document.addEventListener(
+    "submit",
+    () => {
+      if (trackingEnabled) armSubmit();
+    },
+    true,
+  );
+  document.addEventListener(
+    "click",
+    (event) => {
+      if (!trackingEnabled) return;
+      const control = (event.target as Element | null)?.closest?.('button, input[type="submit"], [role="button"]');
+      if (control && SUBMIT_LABEL.test(controlLabel(control))) armSubmit();
+    },
+    true,
+  );
+}
+
+// Runs on every page load: if this tab just submitted a form and navigated
+// here, check whether this is the confirmation page.
+function checkPendingSubmission() {
+  chrome.runtime.sendMessage({ type: "CHECK_PENDING" }, (response) => {
+    if (chrome.runtime.lastError || !response?.payload || !trackingEnabled) return;
+    if (CONFIRM_URL.test(location.pathname) || CONFIRM_TEXT.test(bodyText())) {
+      confirmSubmission(response.payload);
+    } else {
+      watchForConfirmation(response.payload, 15000, false);
+    }
+  });
+}
+
 function showToast(message: string) {
   const toast = document.createElement("div");
   toast.textContent = message;
@@ -448,6 +559,7 @@ function injectFillButton() {
   });
 
   document.body.appendChild(button);
+  startSubmitWatcher();
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -487,6 +599,8 @@ function startWatching() {
   });
   observer.observe(document.documentElement, { childList: true, subtree: true });
 }
+
+checkPendingSubmission();
 
 if (document.body) {
   startWatching();

@@ -64,8 +64,17 @@ built extension to test the full auth/upload/fill flow.
 - Application tracking: after a fill, the content script guesses company (hosted-ATS path or
   subdomain, then `og:site_name`, then the domain), role (first `<h1>`, else the page title) and a
   cleaned URL (only job-id query params like `gh_jid` are kept so the same posting dedupes). The
-  popup's "Add filled pages to my application tracker" checkbox stores `trackApplications` in
-  `chrome.storage.local`; only an explicit `false` disables logging.
+  popup's "Track my applications automatically" checkbox stores `trackApplications` in
+  `chrome.storage.local`; only an explicit `false` disables logging and submission detection.
+- Submission detection (`startSubmitWatcher`, started when the Fill button is injected): a `submit`
+  event or a click on a button labelled Submit/Apply/etc. only *arms* a pending submission
+  (`SUBMIT_ATTEMPT`, parked per tab in `chrome.storage.session` for 2 minutes), because validation
+  can fail. It becomes `applied` (`CONFIRM_SUBMIT` -> `POST /applications/submitted`) only when a
+  confirmation appears: newly appearing text matching `CONFIRM_TEXT` on the same page (text already
+  present at click time, like a "thank you" footer, is ignored), a URL change to a
+  confirmation-looking path, or -- via `CHECK_PENDING` on every page load -- landing on such a
+  page after the form navigated. If no confirmation is recognised the row simply stays "Filled"
+  and can be marked applied from the web app.
 - `background.ts` and `content-script.ts` are deliberately import/export-free and compiled by a
   separate `tsconfig.scripts.json` (not bundled by Vite), because MV3 content scripts run as
   classic scripts and choke on ES module syntax. If you need to share code with the popup, copy

@@ -52,7 +52,41 @@ async function logApplication(payload: unknown): Promise<{ ok: boolean }> {
   }
 }
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+// A submit click/event is only a *possible* submission (validation can fail),
+// so it's parked per tab here until a page reports a confirmation. Kept in
+// session storage because the service worker can be shut down at any time.
+const PENDING_TTL_MS = 2 * 60 * 1000;
+
+async function setPending(tabId: number, payload: unknown): Promise<void> {
+  await chrome.storage.session.set({ [`pending:${tabId}`]: { payload, at: Date.now() } });
+}
+
+async function getPending(tabId: number): Promise<unknown | null> {
+  const key = `pending:${tabId}`;
+  const stored = await chrome.storage.session.get(key);
+  const entry = stored[key] as { payload: unknown; at: number } | undefined;
+  if (!entry || Date.now() - entry.at > PENDING_TTL_MS) return null;
+  return entry.payload;
+}
+
+async function markSubmitted(payload: unknown): Promise<{ ok: boolean }> {
+  const token = await getToken();
+  if (!token) return { ok: false };
+  try {
+    const response = await fetch(`${API_BASE_URL}/applications/submitted`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(payload),
+    });
+    return { ok: response.ok };
+  } catch {
+    return { ok: false };
+  }
+}
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  const tabId = sender.tab?.id;
+
   if (message?.type === "REFRESH_PROFILE") {
     refreshProfile().then(sendResponse);
     return true;
@@ -61,11 +95,20 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     logApplication(message.payload).then(sendResponse);
     return true;
   }
-  return false;
-});
-
-chrome.runtime.onInstalled.addListener((details) => {
-  if (details.reason === "install") {
-    console.log("Resume Auto-Filler installed. Click the toolbar icon to get started.");
+  if (message?.type === "SUBMIT_ATTEMPT" && tabId !== undefined) {
+    setPending(tabId, message.payload).then(() => sendResponse({ ok: true }));
+    return true;
   }
+  if (message?.type === "CHECK_PENDING" && tabId !== undefined) {
+    getPending(tabId).then((payload) => sendResponse({ payload }));
+    return true;
+  }
+  if (message?.type === "CONFIRM_SUBMIT") {
+    markSubmitted(message.payload).then(async (result) => {
+      if (tabId !== undefined) await chrome.storage.session.remove(`pending:${tabId}`);
+      sendResponse(result);
+    });
+    return true;
+  }
+  return false;
 });
