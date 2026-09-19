@@ -14,7 +14,7 @@ import {
 } from "../components/Icons";
 import ProfileEditor from "../components/ProfileEditor";
 import { useAuth } from "../context/AuthContext";
-import { updateDemographics, uploadResume } from "../lib/api";
+import { deleteResumeFile, updateDemographics, uploadResume } from "../lib/api";
 import { EEO_FIELDS } from "../lib/eeoOptions";
 import type { EeoProfile } from "../lib/types";
 
@@ -31,6 +31,11 @@ function initials(first: string | null, last: string | null): string {
   const a = first?.[0] ?? "";
   const b = last?.[0] ?? "";
   return (a + b).toUpperCase() || "?";
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function cardMotion(index: number) {
@@ -107,6 +112,7 @@ export default function Dashboard() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [confirmRemoveFile, setConfirmRemoveFile] = useState(false);
   const sectionIds = useRef(SECTIONS.map((s) => s.id)).current;
   const activeSection = useActiveSection(sectionIds);
   const tracker = useApplications(token);
@@ -151,6 +157,28 @@ export default function Dashboard() {
     } finally {
       setUploading(false);
       e.target.value = "";
+    }
+  }
+
+  useEffect(() => {
+    if (!confirmRemoveFile) return;
+    const t = setTimeout(() => setConfirmRemoveFile(false), 3000);
+    return () => clearTimeout(t);
+  }, [confirmRemoveFile]);
+
+  async function handleRemoveFile() {
+    if (!token) return;
+    if (!confirmRemoveFile) {
+      setConfirmRemoveFile(true);
+      return;
+    }
+    setConfirmRemoveFile(false);
+    setUploadError(null);
+    try {
+      await deleteResumeFile(token);
+      await refreshProfile();
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Couldn't remove the file");
     }
   }
 
@@ -326,6 +354,27 @@ export default function Dashboard() {
               <div className="empty-hint">No resume uploaded yet — drop a PDF below to get started.</div>
             )}
 
+            {profile?.has_resume &&
+              (profile.resume_file ? (
+                <div className="file-row">
+                  <span className="file-icon">
+                    <DocumentIcon size={20} />
+                  </span>
+                  <div className="file-meta">
+                    <strong>{profile.resume_file.name}</strong>
+                    <span>{formatBytes(profile.resume_file.size)} · the extension attaches this to applications</span>
+                  </div>
+                  <button className={`text-btn${confirmRemoveFile ? " danger" : ""}`} type="button" onClick={handleRemoveFile}>
+                    {confirmRemoveFile ? "Confirm?" : "Remove file"}
+                  </button>
+                </div>
+              ) : (
+                <div className="alert alert-warn">
+                  Upload your PDF again so the extension can attach it to applications. Your parsed
+                  details are already saved.
+                </div>
+              ))}
+
             <label className={`dropzone${uploading ? " busy" : ""}`} htmlFor="resume-file">
               <span className="dropzone-icon">
                 <UploadIcon />
@@ -333,7 +382,7 @@ export default function Dashboard() {
               <span className="dropzone-title">
                 {uploading ? "Parsing your resume…" : profile?.has_resume ? "Replace your resume" : "Drop your resume here"}
               </span>
-              <span className="dropzone-sub">PDF only — click to browse or drag a file in</span>
+              <span className="dropzone-sub">PDF only — click to browse or drag a file in. We keep the file so the extension can attach it.</span>
               <input id="resume-file" type="file" accept="application/pdf" onChange={handleUpload} disabled={uploading} />
             </label>
 

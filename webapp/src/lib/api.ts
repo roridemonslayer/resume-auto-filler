@@ -141,3 +141,11 @@ export async function deleteApplication(token: string, id: number): Promise<void
   });
   if (!response.ok) throw new Error(await parseErrorDetail(response));
 }
+
+export async function deleteResumeFile(token: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/resume/file`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+  if (!response.ok) throw new Error(await parseErrorDetail(response));
+}

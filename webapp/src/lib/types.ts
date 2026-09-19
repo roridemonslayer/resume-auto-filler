@@ -16,10 +16,17 @@ export interface EeoProfile {
   sexual_orientation: string | null;
 }
 
+export interface ResumeFileInfo {
+  name: string;
+  size: number;
+  updated_at: string;
+}
+
 export interface FullProfile {
   resume: ResumeProfile;
   eeo: EeoProfile;
   has_resume: boolean;
+  resume_file: ResumeFileInfo | null;
 }
 
 export type ApplicationStatus = "filled" | "applied" | "interviewing" | "offer" | "rejected";

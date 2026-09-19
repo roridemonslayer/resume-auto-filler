@@ -16,7 +16,7 @@ const STEPS = [
   },
   {
     title: "Click Fill Application",
-    body: "Install the extension, open any job application, and click the green button. Review what filled in, then submit it yourself.",
+    body: "Install the extension, open any job application, and click the lime R button. It fills the form and attaches your resume. Review it, then submit it yourself.",
   },
 ];
 
