@@ -109,7 +109,7 @@ const FIELD_PATTERNS: Array<{ key: ProfileKey; patterns: RegExp[] }> = [
   { key: "desired_salary", patterns: [/salary|compensation expectation|desired (pay|compensation)|pay expectation/i] },
   {
     key: "how_did_you_hear",
-    patterns: [/how did you (hear|find|learn)|where did you (hear|find|learn)|referral source/i],
+    patterns: [/how (did )?you (hear|heard|find|found|learn)|where did you (hear|find|learn)|referral source|source of (application|referral)/i],
   },
   { key: "country", patterns: [/\bcountry\b(?!.*(citizen|birth|origin))/i] },
   { key: "location", patterns: [/\bcity\b|current location|where are you (located|based)|^location$/i] },
@@ -123,42 +123,105 @@ function normalizeText(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
-function getFieldSignal(el: HTMLElement): string {
-  const parts: string[] = [];
+// Punctuation that glues words together in ids/names ("_systemfield_name",
+// "urls[LinkedIn]") becomes a space so word-boundary patterns can see them.
+function normalizeSignal(text: string): string {
+  return normalizeText(text.replace(/[_\-.[\]]+/g, " "));
+}
 
-  const attrs = ["name", "id", "placeholder", "aria-label", "autocomplete"];
-  for (const attr of attrs) {
-    const value = el.getAttribute(attr);
-    if (value) parts.push(value);
+const CONTROL_SELECTOR = 'input:not([type="hidden"]):not([type="submit"]):not([type="button"]), select, textarea';
+
+// For controls with no <label>, the question is usually the text of the
+// container that holds just this one control (Lever's custom questions).
+function nearbyQuestionText(el: HTMLElement): string {
+  let best: HTMLElement | null = null;
+  let node = el.parentElement;
+  for (let depth = 0; node && depth < 4; depth++, node = node.parentElement) {
+    if (node.querySelectorAll(CONTROL_SELECTOR).length !== 1) break;
+    if ((node.textContent ?? "").length <= 600) best = node;
+  }
+  if (!best) return "";
+  const clone = best.cloneNode(true) as HTMLElement;
+  clone.querySelectorAll("select, option, script, style, textarea, input").forEach((n) => n.remove());
+  return normalizeText(clone.textContent ?? "").slice(0, 200);
+}
+
+// The label/placeholder text a person reads, as opposed to name/id attributes.
+function humanSignal(el: HTMLElement): string {
+  const parts: string[] = [];
+  let labelled = false;
+
+  const ariaLabel = el.getAttribute("aria-label");
+  if (ariaLabel) {
+    parts.push(ariaLabel);
+    labelled = true;
+  }
+
+  const labelledBy = el.getAttribute("aria-labelledby");
+  if (labelledBy) {
+    for (const id of labelledBy.split(/\s+/)) {
+      const text = document.getElementById(id)?.textContent;
+      if (text) {
+        parts.push(text);
+        labelled = true;
+      }
+    }
   }
 
   const id = el.getAttribute("id");
   if (id) {
     const label = document.querySelector(`label[for="${CSS.escape(id)}"]`);
-    if (label?.textContent) parts.push(label.textContent);
+    if (label?.textContent) {
+      parts.push(label.textContent);
+      labelled = true;
+    }
   }
 
   const wrappingLabel = el.closest("label");
-  if (wrappingLabel?.textContent) parts.push(wrappingLabel.textContent);
+  if (wrappingLabel?.textContent) {
+    parts.push(wrappingLabel.textContent);
+    labelled = true;
+  }
 
-  return normalizeText(parts.join(" "));
+  const placeholder = el.getAttribute("placeholder");
+  if (placeholder) parts.push(placeholder);
+  if (!labelled) parts.push(nearbyQuestionText(el));
+
+  return normalizeSignal(parts.join(" "));
 }
 
-// Loose keys like "company" or "name" are fine for short labels ("Current
-// company") but would otherwise fire on long questions such as "Why do you want
-// to work at this company?" and paste an employer into an essay box.
-const LOOSE_KEYS: ProfileKey[] = ["education", "skills", "work_history", "full_name"];
-const LOOSE_KEY_MAX_SIGNAL = 45;
+function getFieldSignal(el: HTMLElement): string {
+  const attrs = ["name", "id", "autocomplete"]
+    .map((attr) => el.getAttribute(attr))
+    .filter((v): v is string => Boolean(v));
+  return normalizeSignal(`${attrs.join(" ")} ${humanSignal(el)}`);
+}
 
 function matchProfileKey(signal: string): ProfileKey | null {
   if (!signal) return null;
   for (const { key, patterns } of FIELD_PATTERNS) {
-    if (patterns.some((p) => p.test(signal))) {
-      if (LOOSE_KEYS.includes(key) && (signal.length > LOOSE_KEY_MAX_SIGNAL || signal.includes("?"))) return null;
-      return key;
-    }
+    if (patterns.some((p) => p.test(signal))) return key;
   }
   return null;
+}
+
+// Loose keys like "company" or "name" are fine for short labels ("Current
+// company") but would otherwise fire on long questions such as "Why do you want
+// to work at this company?" and paste an employer into an essay box. The guard
+// looks at the visible label only (not name/id attributes) and only applies to
+// free-text controls: a dropdown or radio can't be wrongly filled, because
+// nothing happens unless an option actually matches.
+const LOOSE_KEYS: ProfileKey[] = ["education", "skills", "work_history", "full_name"];
+const LOOSE_KEY_MAX_HUMAN = 45;
+
+function matchFieldKey(el: HTMLElement): ProfileKey | null {
+  const key = matchProfileKey(getFieldSignal(el));
+  if (!key || !LOOSE_KEYS.includes(key)) return key;
+
+  const freeText = el instanceof HTMLTextAreaElement || (el instanceof HTMLInputElement && el.getAttribute("role") !== "combobox");
+  if (!freeText) return key;
+  const human = humanSignal(el);
+  return human.length > LOOSE_KEY_MAX_HUMAN || human.includes("?") ? null : key;
 }
 
 const YES_NO_KEYS: ProfileKey[] = ["authorized_to_work", "requires_sponsorship", "willing_to_relocate", "open_to_in_person"];
@@ -316,8 +379,7 @@ function fillTextAndSelectFields(profile: FullProfile): number {
 
     if (isCombobox(field)) return; // handled by fillComboboxes (needs the menu opened)
 
-    const signal = getFieldSignal(field);
-    const key = matchProfileKey(signal);
+    const key = matchFieldKey(field);
     if (!key) return;
 
     const value = valueForKey(key, profile);
@@ -567,7 +629,7 @@ async function fillComboboxes(profile: FullProfile): Promise<number> {
   let filled = 0;
   for (const input of inputs) {
     if (input.disabled || input.readOnly) continue;
-    const key = matchProfileKey(getFieldSignal(input));
+    const key = matchFieldKey(input);
     const value = key ? valueForKey(key, profile) : null;
     if (!value) continue;
     if (await fillCombobox(input, value)) {
@@ -850,7 +912,7 @@ function fillableFieldKeys(): ProfileKey[] {
       const type = (field as HTMLInputElement).type;
       if (["hidden", "submit", "button", "file", "radio"].includes(type)) return;
     }
-    const key = matchProfileKey(getFieldSignal(field));
+    const key = matchFieldKey(field);
     if (key) keys.push(key);
   });
 
