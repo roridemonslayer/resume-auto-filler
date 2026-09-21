@@ -26,9 +26,22 @@ interface EeoProfile {
   sexual_orientation: string | null;
 }
 
+interface AnswerProfile {
+  country: string | null;
+  location: string | null;
+  authorized_to_work: "yes" | "no" | null;
+  requires_sponsorship: "yes" | "no" | null;
+  willing_to_relocate: "yes" | "no" | null;
+  open_to_in_person: "yes" | "no" | null;
+  earliest_start: string | null;
+  desired_salary: string | null;
+  how_did_you_hear: string | null;
+}
+
 interface FullProfile {
   resume: ResumeProfile;
   eeo: EeoProfile;
+  answers?: AnswerProfile;
   has_resume: boolean;
   resume_file: { name: string; size: number; updated_at: string } | null;
 }
@@ -49,7 +62,16 @@ type ProfileKey =
   | "disability_status"
   | "gender"
   | "race_ethnicity"
-  | "sexual_orientation";
+  | "sexual_orientation"
+  | "country"
+  | "location"
+  | "authorized_to_work"
+  | "requires_sponsorship"
+  | "willing_to_relocate"
+  | "open_to_in_person"
+  | "earliest_start"
+  | "desired_salary"
+  | "how_did_you_hear";
 
 // Order matters: matchProfileKey returns the first match, so more
 // specific patterns (e.g. "School Name" -> education) must come before
@@ -68,6 +90,29 @@ const FIELD_PATTERNS: Array<{ key: ProfileKey; patterns: RegExp[] }> = [
   { key: "sexual_orientation", patterns: [/sexual[\s_-]?orientation/i] },
   { key: "gender", patterns: [/\bgender\b|\bsex\b(?!ual)/i] },
   { key: "race_ethnicity", patterns: [/\brace\b|ethnicit/i] },
+  // Screening questions. Sponsorship is checked before work authorization
+  // because "authorized to work ... require sponsorship?" is really the former.
+  { key: "requires_sponsorship", patterns: [/sponsor|\bvisa\b/i] },
+  {
+    key: "authorized_to_work",
+    patterns: [/(legally |currently |lawfully )?(authori[sz]ed|eligible|permitted|allowed|able) to work|work authori[sz]ation|right to work/i],
+  },
+  { key: "willing_to_relocate", patterns: [/relocat/i] },
+  {
+    key: "open_to_in_person",
+    patterns: [/in[\s-]?person|on[\s-]?site|hybrid|work(ing)? from (the |our |an )?office|days (per|a|in the) (week|office)/i],
+  },
+  {
+    key: "earliest_start",
+    patterns: [/earliest.*start|start(ing)? date|when (can|could|would|are) you .*(start|begin|available)|available to start|how soon/i],
+  },
+  { key: "desired_salary", patterns: [/salary|compensation expectation|desired (pay|compensation)|pay expectation/i] },
+  {
+    key: "how_did_you_hear",
+    patterns: [/how did you (hear|find|learn)|where did you (hear|find|learn)|referral source/i],
+  },
+  { key: "country", patterns: [/\bcountry\b(?!.*(citizen|birth|origin))/i] },
+  { key: "location", patterns: [/\bcity\b|current location|where are you (located|based)|^location$/i] },
   { key: "education", patterns: [/education|degree|university|school/i] },
   { key: "skills", patterns: [/skills|competenc/i] },
   { key: "work_history", patterns: [/experience|employer|company|work[\s_-]?history/i] },
@@ -99,14 +144,27 @@ function getFieldSignal(el: HTMLElement): string {
   return normalizeText(parts.join(" "));
 }
 
+// Loose keys like "company" or "name" are fine for short labels ("Current
+// company") but would otherwise fire on long questions such as "Why do you want
+// to work at this company?" and paste an employer into an essay box.
+const LOOSE_KEYS: ProfileKey[] = ["education", "skills", "work_history", "full_name"];
+const LOOSE_KEY_MAX_SIGNAL = 45;
+
 function matchProfileKey(signal: string): ProfileKey | null {
   if (!signal) return null;
   for (const { key, patterns } of FIELD_PATTERNS) {
     if (patterns.some((p) => p.test(signal))) {
+      if (LOOSE_KEYS.includes(key) && (signal.length > LOOSE_KEY_MAX_SIGNAL || signal.includes("?"))) return null;
       return key;
     }
   }
   return null;
+}
+
+const YES_NO_KEYS: ProfileKey[] = ["authorized_to_work", "requires_sponsorship", "willing_to_relocate", "open_to_in_person"];
+
+function yesNo(value: "yes" | "no" | null | undefined): string | null {
+  return value === "yes" ? "Yes" : value === "no" ? "No" : null;
 }
 
 function valueForKey(key: ProfileKey, profile: FullProfile): string | null {
@@ -133,6 +191,24 @@ function valueForKey(key: ProfileKey, profile: FullProfile): string | null {
       return profile.resume.skills.length ? profile.resume.skills.join(", ") : null;
     case "work_history":
       return profile.resume.work_history[0] ?? null;
+    case "country":
+      return profile.answers?.country ?? null;
+    case "location":
+      return profile.answers?.location ?? null;
+    case "authorized_to_work":
+      return yesNo(profile.answers?.authorized_to_work);
+    case "requires_sponsorship":
+      return yesNo(profile.answers?.requires_sponsorship);
+    case "willing_to_relocate":
+      return yesNo(profile.answers?.willing_to_relocate);
+    case "open_to_in_person":
+      return yesNo(profile.answers?.open_to_in_person);
+    case "earliest_start":
+      return profile.answers?.earliest_start ?? null;
+    case "desired_salary":
+      return profile.answers?.desired_salary ?? null;
+    case "how_did_you_hear":
+      return profile.answers?.how_did_you_hear ?? null;
     case "veteran_status":
       return profile.eeo.veteran_status;
     case "disability_status":
@@ -169,16 +245,60 @@ function highlight(el: HTMLElement) {
   }, 1200);
 }
 
-function trySelectOption(select: HTMLSelectElement, value: string): boolean {
-  const lowerValue = value.toLowerCase();
-  for (const option of Array.from(select.options)) {
-    if (option.text.toLowerCase().includes(lowerValue) || option.value.toLowerCase() === lowerValue) {
-      select.value = option.value;
-      select.dispatchEvent(new Event("change", { bubbles: true }));
-      return true;
-    }
+function normalizeOption(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9%$+' ]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// "I don't wish to answer" is how the web app phrases declining; forms say
+// "Decline to self-identify", "Prefer not to say", "I do not want to answer"...
+const DECLINE_WANTED = /(don'?t|do not) (wish|want)|prefer not|decline|rather not/;
+const DECLINE_OPTION = /decline|(don'?t|do not) (wish|want)|prefer not|rather not|not to (answer|say|disclose|identify|specify)/;
+
+// Picks the option that best matches `wanted`, or -1. Order matters so "No"
+// picks "No" (not "Not sure" or "Norway"): exact, then a leading whole word,
+// then any whole word, then plain containment for long option sentences.
+function bestOptionIndex(labels: string[], wanted: string): number {
+  const norm = labels.map(normalizeOption);
+  const w = normalizeOption(wanted);
+  if (!w) return -1;
+
+  if (DECLINE_WANTED.test(w)) {
+    const i = norm.findIndex((l) => DECLINE_OPTION.test(l));
+    if (i >= 0) return i;
   }
-  return false;
+
+  let i = norm.findIndex((l) => l === w);
+  if (i >= 0) return i;
+  const escaped = escapeRegExp(w);
+  const leading = new RegExp(`^${escaped}\\b`);
+  i = norm.findIndex((l) => leading.test(l));
+  if (i >= 0) return i;
+  const anywhere = new RegExp(`\\b${escaped}\\b`);
+  i = norm.findIndex((l) => anywhere.test(l));
+  if (i >= 0) return i;
+  if (w.length >= 6) {
+    i = norm.findIndex((l) => l.length >= 6 && (l.includes(w) || w.includes(l)));
+  }
+  return i;
+}
+
+function trySelectOption(select: HTMLSelectElement, value: string): boolean {
+  const options = Array.from(select.options).filter((o) => o.value !== "" || o.text.trim() !== "");
+  const index = bestOptionIndex(options.map((o) => o.text), value);
+  const byValue = options.findIndex((o) => o.value.toLowerCase() === value.toLowerCase());
+  const chosen = index >= 0 ? options[index] : byValue >= 0 ? options[byValue] : null;
+  if (!chosen) return false;
+  select.value = chosen.value;
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+  return true;
 }
 
 function fillTextAndSelectFields(profile: FullProfile): number {
@@ -194,12 +314,21 @@ function fillTextAndSelectFields(profile: FullProfile): number {
       }
     }
 
+    if (isCombobox(field)) return; // handled by fillComboboxes (needs the menu opened)
+
     const signal = getFieldSignal(field);
     const key = matchProfileKey(signal);
     if (!key) return;
 
     const value = valueForKey(key, profile);
     if (!value) return;
+
+    // "Yes"/"No" belong in a select, radio or dropdown; a text box asking e.g.
+    // for an address that happens to mention relocation must not get "Yes".
+    if (tag !== "select" && YES_NO_KEYS.includes(key)) return;
+
+    // Don't overwrite something the user (or the site) already put there.
+    if (tag !== "select" && (field as HTMLInputElement | HTMLTextAreaElement).value.trim() !== "") return;
 
     if (tag === "select") {
       if (trySelectOption(field as HTMLSelectElement, value)) {
@@ -284,8 +413,8 @@ function fillRadioGroups(profile: FullProfile): number {
     const value = valueForKey(key, profile);
     if (!value) continue;
 
-    const lowerValue = value.toLowerCase();
-    const match = groupRadios.find((r) => getRadioOptionLabel(r).toLowerCase().includes(lowerValue));
+    const index = bestOptionIndex(groupRadios.map((r) => getRadioOptionLabel(r)), value);
+    const match = index >= 0 ? groupRadios[index] : undefined;
     if (match) {
       match.click();
       highlight(match.closest("label") ?? match);
@@ -367,8 +496,122 @@ async function attachResume(profile: FullProfile): Promise<boolean> {
   return true;
 }
 
+// --- custom dropdowns ------------------------------------------------------
+// react-select (used by Greenhouse's newer forms) and similar widgets aren't
+// <select>s: an <input role="combobox"> opens a menu of [role="option"]
+// elements, and nothing is chosen until one is clicked.
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+async function waitFor<T>(find: () => T | null, timeoutMs = 1200, stepMs = 50): Promise<T | null> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const found = find();
+    if (found) return found;
+    if (Date.now() > deadline) return null;
+    await sleep(stepMs);
+  }
+}
+
+function isCombobox(el: HTMLElement): el is HTMLInputElement {
+  return el instanceof HTMLInputElement && el.getAttribute("role") === "combobox";
+}
+
+function comboboxHasValue(input: HTMLInputElement): boolean {
+  const control = input.closest('[class*="control"]') ?? input.parentElement?.parentElement;
+  return Boolean(control?.querySelector('[class*="single-value"], [class*="multi-value"]'));
+}
+
+function comboboxOptions(input: HTMLInputElement): HTMLElement[] {
+  const own = document.querySelectorAll<HTMLElement>(`[id^="react-select-${CSS.escape(input.id)}-option"]`);
+  if (own.length) return Array.from(own);
+  const scope = input.closest("div")?.parentElement?.parentElement ?? document.body;
+  return Array.from(scope.querySelectorAll<HTMLElement>('[role="option"]')).filter((o) => !o.closest(".iti"));
+}
+
+async function fillCombobox(input: HTMLInputElement, wanted: string): Promise<boolean> {
+  if (comboboxHasValue(input)) return false;
+
+  // react-select ignores synthetic key events and plain click(), but opens on a
+  // full pointer sequence on its control, like a real mouse press does.
+  const control = input.closest<HTMLElement>('[class*="control"]') ?? input.parentElement ?? input;
+  for (const type of ["pointerdown", "mousedown", "pointerup", "mouseup", "click"]) {
+    const init = { bubbles: true, cancelable: true, button: 0 };
+    control.dispatchEvent(type.startsWith("pointer") ? new PointerEvent(type, { ...init, pointerType: "mouse" }) : new MouseEvent(type, init));
+  }
+  input.focus();
+  // Long lists (countries) need typing to narrow them; yes/no menus are already complete.
+  if (!/^(yes|no)$/i.test(wanted)) setNativeValue(input, wanted);
+
+  const options = await waitFor(() => {
+    const found = comboboxOptions(input);
+    return found.length ? found : null;
+  });
+
+  const index = options ? bestOptionIndex(options.map((o) => o.textContent ?? ""), wanted) : -1;
+  if (!options || index < 0) {
+    setNativeValue(input, "");
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
+    input.blur();
+    return false;
+  }
+
+  options[index].click();
+  await sleep(60);
+  input.blur();
+  return comboboxHasValue(input);
+}
+
+async function fillComboboxes(profile: FullProfile): Promise<number> {
+  const inputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[role="combobox"]'));
+  let filled = 0;
+  for (const input of inputs) {
+    if (input.disabled || input.readOnly) continue;
+    const key = matchProfileKey(getFieldSignal(input));
+    const value = key ? valueForKey(key, profile) : null;
+    if (!value) continue;
+    if (await fillCombobox(input, value)) {
+      highlight(input.closest('[class*="control"]') ?? input);
+      filled++;
+    }
+  }
+  return filled;
+}
+
+// intl-tel-input (the phone field's country flag picker) has its own list.
+async function fillPhoneCountry(profile: FullProfile): Promise<number> {
+  const country = profile.answers?.country;
+  if (!country) return 0;
+
+  let filled = 0;
+  for (const container of Array.from(document.querySelectorAll<HTMLElement>(".iti"))) {
+    const button = container.querySelector<HTMLElement>(".iti__selected-country");
+    if (!button || !container.querySelector(".iti__globe")) continue; // already has a country
+
+    button.click();
+    const listId = button.getAttribute("aria-controls");
+    const items = await waitFor(() => {
+      const list = listId ? document.getElementById(listId) : container;
+      const found = Array.from(list?.querySelectorAll<HTMLElement>("li.iti__country") ?? []);
+      return found.length ? found : null;
+    });
+    const names = (items ?? []).map((li) => li.querySelector(".iti__country-name")?.textContent ?? li.textContent ?? "");
+    const index = items ? bestOptionIndex(names, country) : -1;
+    if (items && index >= 0) {
+      items[index].click();
+      highlight(button);
+      filled++;
+    } else {
+      button.click(); // close it again
+    }
+  }
+  return filled;
+}
+
 async function fillEverything(profile: FullProfile): Promise<{ fields: number; attached: boolean }> {
-  const fields = fillForm(profile);
+  let fields = fillForm(profile);
+  fields += await fillComboboxes(profile);
+  fields += await fillPhoneCountry(profile);
   const attached = await attachResume(profile);
   return { fields, attached };
 }

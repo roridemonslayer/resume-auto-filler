@@ -19,9 +19,22 @@ export interface EeoProfile {
   sexual_orientation: string | null;
 }
 
+export interface AnswerProfile {
+  country: string | null;
+  location: string | null;
+  authorized_to_work: "yes" | "no" | null;
+  requires_sponsorship: "yes" | "no" | null;
+  willing_to_relocate: "yes" | "no" | null;
+  open_to_in_person: "yes" | "no" | null;
+  earliest_start: string | null;
+  desired_salary: string | null;
+  how_did_you_hear: string | null;
+}
+
 export interface FullProfile {
   resume: ResumeProfile;
   eeo: EeoProfile;
+  answers: AnswerProfile;
   has_resume: boolean;
   resume_file: { name: string; size: number; updated_at: string } | null;
 }

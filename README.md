@@ -58,6 +58,10 @@ is no longer accurate now that the project supports accounts. Here's what's actu
 
 - Smart field matching by input name/id/placeholder/label text -- email, phone, name, LinkedIn,
   GitHub, website/portfolio, education, skills, work history
+- Screening questions and custom dropdowns -- work authorization, visa sponsorship, relocation,
+  in-person/hybrid, start date, country (including the phone country picker) -- answered from the
+  "Common answers" you set once in the web app; anything you mark Skip is left for you, and essays
+  and legal agreements are never auto-answered
 - EEO/voluntary self-identification support -- veteran status, disability status, gender,
   race/ethnicity, sexual orientation -- entered once in the web app, filled via both `<select>`
   dropdowns and radio-button groups (Workday-style forms use radios, not selects)

@@ -76,6 +76,26 @@ built extension to test the full auth/upload/fill flow.
   refreshes when opened), and `LOG_APPLICATION` posts the filled page to `/applications`. It is
   also the natural home for keyboard-shortcut (`chrome.commands`) support from the roadmap.
   `API_BASE_URL` is duplicated here because the worker can't import from the popup code.
+- Filling (`fillEverything`) runs in this order: text fields, native `<select>`s and radio groups
+  (`fillForm`, synchronous), then custom dropdowns (`fillComboboxes`), the phone country picker
+  (`fillPhoneCountry`), then the resume file. Notes on the non-obvious parts:
+  - Options are chosen by `bestOptionIndex` (exact, then a leading whole word, then any whole
+    word, then containment for long sentences), so "No" never picks "Not sure" or "Norway", and
+    "I don't wish to answer" maps to "Decline to self-identify" / "Prefer not to say".
+  - Custom dropdowns are react-select style: an `input[role=combobox]` whose menu is
+    `[role=option]` elements. It ignores synthetic key events, typing and plain `click()`, but
+    opens on a full `pointerdown/mousedown/pointerup/mouseup/click` sequence dispatched on its
+    control, so `fillCombobox` does that, waits for the options (matched by the
+    `react-select-<inputId>-option` id prefix so the phone country list can't be confused for
+    them), then clicks the best match. The phone flag picker (intl-tel-input, `.iti`) has its own
+    list and is handled separately from `profile.answers.country`.
+  - Screening questions come from the profile's `answers` (Common answers in the web app).
+    Yes/no answers are only ever put into a select, radio group or dropdown, never a text box.
+    Loose keys (company, school, name, skills) only apply to short labels and never to a
+    question containing `?`, so an essay like "Why do you want to work at this company?" doesn't
+    get an employer pasted into it. Fields that already hold text are not overwritten.
+  - Left alone on purpose: essays, legal agreements/consents, and company-specific questions
+    ("Have you interviewed here before?").
 - Resume attach (`attachResume`): after filling text fields, if the account has a stored PDF
   (`profile.resume_file`) the content script asks the background worker for it (`GET_RESUME_FILE`,
   returned as base64 because messages are JSON-only) and sets it on the form's resume `<input
