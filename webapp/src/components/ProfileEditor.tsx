@@ -8,6 +8,9 @@ interface Draft {
   last_name: string;
   email: string;
   phone: string;
+  linkedin_url: string;
+  github_url: string;
+  website_url: string;
   education: string;
   work_history: string;
   skills: string[];
@@ -19,6 +22,9 @@ function toDraft(resume: ResumeProfile | undefined): Draft {
     last_name: resume?.last_name ?? "",
     email: resume?.email ?? "",
     phone: resume?.phone ?? "",
+    linkedin_url: resume?.linkedin_url ?? "",
+    github_url: resume?.github_url ?? "",
+    website_url: resume?.website_url ?? "",
     education: (resume?.education ?? []).join("\n"),
     work_history: (resume?.work_history ?? []).join("\n"),
     skills: resume?.skills ?? [],
@@ -118,6 +124,9 @@ export default function ProfileEditor({ token, resume, hasResume, onSaved }: Pro
         last_name: draft.last_name || null,
         email: draft.email || null,
         phone: draft.phone || null,
+        linkedin_url: draft.linkedin_url || null,
+        github_url: draft.github_url || null,
+        website_url: draft.website_url || null,
         education: lines(draft.education),
         work_history: lines(draft.work_history),
         skills: commitSkills(skillInput, draft.skills),
@@ -151,6 +160,21 @@ export default function ProfileEditor({ token, resume, hasResume, onSaved }: Pro
           <div className="field">
             <label htmlFor="pd-phone">Phone</label>
             <input id="pd-phone" type="text" value={draft.phone} placeholder="(555) 123-4567" onChange={(e) => setField("phone", e.target.value)} />
+          </div>
+        </div>
+
+        <div className="eeo-grid">
+          <div className="field">
+            <label htmlFor="pd-linkedin">LinkedIn</label>
+            <input id="pd-linkedin" type="text" value={draft.linkedin_url} placeholder="linkedin.com/in/you" onChange={(e) => setField("linkedin_url", e.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor="pd-github">GitHub</label>
+            <input id="pd-github" type="text" value={draft.github_url} placeholder="github.com/you" onChange={(e) => setField("github_url", e.target.value)} />
+          </div>
+          <div className="field">
+            <label htmlFor="pd-website">Website / portfolio</label>
+            <input id="pd-website" type="text" value={draft.website_url} placeholder="yoursite.dev" onChange={(e) => setField("website_url", e.target.value)} />
           </div>
         </div>
 
@@ -210,7 +234,7 @@ export default function ProfileEditor({ token, resume, hasResume, onSaved }: Pro
   const r = resume;
   const isEmpty =
     !hasResume ||
-    (!r?.first_name && !r?.last_name && !r?.email && !r?.phone && !r?.education.length && !r?.work_history.length && !r?.skills.length);
+    (!r?.first_name && !r?.last_name && !r?.email && !r?.phone && !r?.linkedin_url && !r?.github_url && !r?.website_url && !r?.education.length && !r?.work_history.length && !r?.skills.length);
 
   return (
     <div>
@@ -235,6 +259,26 @@ export default function ProfileEditor({ token, resume, hasResume, onSaved }: Pro
               <dt>Phone</dt>
               <dd>{r?.phone || <span className="unset">Not set — add it with Edit</span>}</dd>
             </div>
+            {(
+              [
+                ["LinkedIn", r?.linkedin_url],
+                ["GitHub", r?.github_url],
+                ["Website", r?.website_url],
+              ] as const
+            ).map(([label, url]) => (
+              <div key={label}>
+                <dt>{label}</dt>
+                <dd>
+                  {url && /^https?:\/\//i.test(url) ? (
+                    <a href={url} target="_blank" rel="noreferrer" className="link-val">
+                      {url.replace(/^https?:\/\/(www\.)?/i, "")}
+                    </a>
+                  ) : (
+                    <span className="unset">Not set</span>
+                  )}
+                </dd>
+              </div>
+            ))}
           </dl>
 
           <div className="detail-block">
