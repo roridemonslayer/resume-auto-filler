@@ -107,11 +107,93 @@ async function markSubmitted(payload: unknown): Promise<{ ok: boolean }> {
   }
 }
 
+// --- application forms embedded in iframes ---------------------------------
+// The content script also runs inside iframes (e.g. a company careers page
+// embedding Greenhouse). A frame that looks like an application registers here;
+// the top frame shows the button and asks us to fill each registered frame.
+// Registrations are validated with a PING before use, so frames that have since
+// navigated away drop out.
+
+type FrameInfo = { fields: number; hasResumeInput: boolean };
+
+async function getFrames(tabId: number): Promise<Record<string, FrameInfo>> {
+  const key = `frames:${tabId}`;
+  const stored = await chrome.storage.session.get(key);
+  return (stored[key] as Record<string, FrameInfo> | undefined) ?? {};
+}
+
+async function liveFrames(tabId: number): Promise<Record<string, FrameInfo>> {
+  const frames = await getFrames(tabId);
+  const alive: Record<string, FrameInfo> = {};
+  await Promise.all(
+    Object.entries(frames).map(async ([frameId, info]) => {
+      try {
+        await chrome.tabs.sendMessage(tabId, { type: "PING" }, { frameId: Number(frameId) });
+        alive[frameId] = info;
+      } catch {
+        /* frame is gone */
+      }
+    }),
+  );
+  await chrome.storage.session.set({ [`frames:${tabId}`]: alive });
+  return alive;
+}
+
+async function fillChildFrames(tabId: number): Promise<{ fields: number; attached: boolean }> {
+  const frames = await liveFrames(tabId);
+  let fields = 0;
+  let attached = false;
+  for (const frameId of Object.keys(frames)) {
+    try {
+      const result = await chrome.tabs.sendMessage(tabId, { type: "FILL_HERE" }, { frameId: Number(frameId) });
+      fields += result?.fields ?? 0;
+      attached = attached || Boolean(result?.attached);
+    } catch {
+      /* frame went away mid-fill */
+    }
+  }
+  return { fields, attached };
+}
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  chrome.storage.session.remove(`frames:${tabId}`);
+  chrome.storage.session.remove(`pending:${tabId}`);
+});
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const tabId = sender.tab?.id;
 
   if (message?.type === "REFRESH_PROFILE") {
     refreshProfile().then(sendResponse);
+    return true;
+  }
+  if (message?.type === "FRAME_APPLICATION" && tabId !== undefined && sender.frameId) {
+    (async () => {
+      const frames = await getFrames(tabId);
+      frames[String(sender.frameId)] = message.info as FrameInfo;
+      await chrome.storage.session.set({ [`frames:${tabId}`]: frames });
+      try {
+        await chrome.tabs.sendMessage(tabId, { type: "SHOW_BUTTON" }, { frameId: 0 });
+      } catch {
+        /* the top frame isn't ready; it asks for frames itself on startup */
+      }
+      sendResponse({ ok: true });
+    })();
+    return true;
+  }
+  if (message?.type === "GET_FRAME_INFO" && tabId !== undefined) {
+    liveFrames(tabId).then((frames) => sendResponse({ frames: Object.values(frames) }));
+    return true;
+  }
+  if (message?.type === "FILL_CHILD_FRAMES" && tabId !== undefined) {
+    fillChildFrames(tabId).then(sendResponse);
+    return true;
+  }
+  if (message?.type === "GET_TOP_INFO" && tabId !== undefined) {
+    chrome.tabs
+      .sendMessage(tabId, { type: "GET_TOP_INFO_LOCAL" }, { frameId: 0 })
+      .then(sendResponse)
+      .catch(() => sendResponse(null));
     return true;
   }
   if (message?.type === "SYNC_TOKEN" && typeof message.token === "string") {

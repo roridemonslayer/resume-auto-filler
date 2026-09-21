@@ -26,6 +26,12 @@ interface EeoProfile {
   sexual_orientation: string | null;
 }
 
+// The script also runs inside iframes. Only the top frame draws the button and
+// talks to the popup; frames that hold an application form report to the
+// background worker and fill themselves when asked.
+const IS_TOP = window === window.top;
+let hasChildApplication = false;
+
 interface AnswerProfile {
   country: string | null;
   location: string | null;
@@ -670,6 +676,29 @@ async function fillPhoneCountry(profile: FullProfile): Promise<number> {
   return filled;
 }
 
+// Fills this page (unless it only exists to host an embedded form) plus every
+// registered application iframe, via the background worker.
+async function fillPageAndFrames(profile: FullProfile): Promise<{ fields: number; attached: boolean }> {
+  let fields = 0;
+  let attached = false;
+
+  if (!hasChildApplication || pageLooksLikeJobApplication()) {
+    const own = await fillEverything(profile);
+    fields += own.fields;
+    attached = own.attached;
+  }
+  if (hasChildApplication) {
+    const child = await new Promise<{ fields: number; attached: boolean }>((resolve) => {
+      chrome.runtime.sendMessage({ type: "FILL_CHILD_FRAMES" }, (r) =>
+        resolve(chrome.runtime.lastError || !r ? { fields: 0, attached: false } : r),
+      );
+    });
+    fields += child.fields;
+    attached = attached || child.attached;
+  }
+  return { fields, attached };
+}
+
 async function fillEverything(profile: FullProfile): Promise<{ fields: number; attached: boolean }> {
   let fields = fillForm(profile);
   fields += await fillComboboxes(profile);
@@ -821,11 +850,22 @@ function watchForConfirmation(payload: unknown, durationMs: number, useBaseline:
 }
 
 function armSubmit() {
-  const url = cleanPageUrl();
-  if (!url) return;
-  const payload = { company: guessCompany(), role: guessRole(), url, status: "applied" };
-  chrome.runtime.sendMessage({ type: "SUBMIT_ATTEMPT", payload });
-  watchForConfirmation(payload, CONFIRM_WATCH_MS, true);
+  const start = (info: { company: string; role: string | null; url: string | null }) => {
+    if (!info.url) return;
+    const payload = { company: info.company, role: info.role, url: info.url, status: "applied" };
+    chrome.runtime.sendMessage({ type: "SUBMIT_ATTEMPT", payload });
+    watchForConfirmation(payload, CONFIRM_WATCH_MS, true);
+  };
+
+  const own = { company: guessCompany(), role: guessRole(), url: cleanPageUrl() };
+  if (IS_TOP) {
+    start(own);
+    return;
+  }
+  // In an iframe the embed's URL is meaningless; use the page that hosts it.
+  chrome.runtime.sendMessage({ type: "GET_TOP_INFO" }, (top) => {
+    start(!chrome.runtime.lastError && top?.url ? top : own);
+  });
 }
 
 function controlLabel(el: Element): string {
@@ -1022,7 +1062,7 @@ function injectFillButton() {
       showToast("Upload your resume in the extension popup first.");
       return;
     }
-    const { fields, attached } = await fillEverything(profile);
+    const { fields, attached } = await fillPageAndFrames(profile);
     if (fields === 0 && !attached) {
       showToast("No matching fields found on this page.");
       return;
@@ -1030,7 +1070,7 @@ function injectFillButton() {
     logo.innerHTML = CHECK_SVG;
     setTimeout(() => (logo.innerHTML = LOGO_SVG), 1600);
     const logged = await maybeLogApplication();
-    const missingFile = !attached && !profile.resume_file && findResumeInput() !== null;
+    const missingFile = !attached && !profile.resume_file && !hasChildApplication && findResumeInput() !== null;
     showToast(
       `Filled ${fields} field${fields === 1 ? "" : "s"}${attached ? " and attached your resume" : ""}. Review and submit.` +
         `${logged ? " Added to your tracker." : ""}` +
@@ -1043,27 +1083,75 @@ function injectFillButton() {
   startSubmitWatcher();
 }
 
+function ownPageInfo() {
+  return {
+    looksLikeApplication: pageLooksLikeJobApplication(),
+    fields: fillableFieldKeys().length,
+    hasResumeInput: Array.from(document.querySelectorAll<HTMLInputElement>('input[type="file"]')).some(
+      (input) => fileInputKind(input) === "resume",
+    ),
+    company: guessCompany(),
+    role: guessRole(),
+    url: cleanPageUrl(),
+    host: location.hostname,
+  };
+}
+
+// What the popup shows: this page plus any application iframes it hosts.
+async function getPageInfo() {
+  const own = ownPageInfo();
+  if (!hasChildApplication) return own;
+  const frames = await new Promise<Array<{ fields: number; hasResumeInput: boolean }>>((resolve) => {
+    chrome.runtime.sendMessage({ type: "GET_FRAME_INFO" }, (r) => resolve(chrome.runtime.lastError ? [] : (r?.frames ?? [])));
+  });
+  return {
+    ...own,
+    looksLikeApplication: own.looksLikeApplication || frames.length > 0,
+    fields: own.fields + frames.reduce((n, f) => n + f.fields, 0),
+    hasResumeInput: own.hasResumeInput || frames.some((f) => f.hasResumeInput),
+  };
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type === "GET_PAGE_INFO") {
-    sendResponse({
-      looksLikeApplication: pageLooksLikeJobApplication(),
-      fields: fillableFieldKeys().length,
-      hasResumeInput: Array.from(document.querySelectorAll<HTMLInputElement>('input[type="file"]')).some(
-        (input) => fileInputKind(input) === "resume",
-      ),
-      company: guessCompany(),
-      role: guessRole(),
-      url: cleanPageUrl(),
-      host: location.hostname,
-    });
+  switch (message?.type) {
+    case "PING":
+      sendResponse({ ok: true });
+      return false;
+
+    case "GET_PAGE_INFO":
+      if (!IS_TOP) return false;
+      void getPageInfo().then(sendResponse);
+      return true;
+
+    case "GET_TOP_INFO_LOCAL":
+      if (!IS_TOP) return false;
+      sendResponse({ company: guessCompany(), role: guessRole(), url: cleanPageUrl() });
+      return false;
+
+    case "SHOW_BUTTON":
+      if (IS_TOP) {
+        hasChildApplication = true;
+        injectFillButton();
+      }
+      sendResponse({ ok: true });
+      return false;
+
+    case "FILL_HERE": // background asking an application iframe to fill itself
+      void (async () => {
+        const profile = await loadFreshProfile();
+        sendResponse(profile?.has_resume ? await fillEverything(profile) : { fields: 0, attached: false });
+      })();
+      return true;
+
+    case "FILL_FORM": // from the popup, top frame only
+      if (!IS_TOP || !message.profile) return false;
+      void fillPageAndFrames(message.profile as FullProfile).then(({ fields, attached }) => {
+        if (fields > 0 || attached) void maybeLogApplication();
+        sendResponse({ filled: fields, attached });
+      });
+      return true;
   }
-  if (message?.type === "FILL_FORM" && message.profile) {
-    fillEverything(message.profile as FullProfile).then(({ fields, attached }) => {
-      if (fields > 0 || attached) void maybeLogApplication();
-      sendResponse({ filled: fields, attached });
-    });
-  }
-  return true;
+  return false;
 });
 
 // Many ATS platforms render their form fields client-side after the initial
@@ -1077,6 +1165,22 @@ let scanScheduled = false;
 let scanCount = 0;
 let lastScanHref = location.href;
 
+let frameRegistered = false;
+
+function registerFrame() {
+  frameRegistered = true;
+  chrome.runtime.sendMessage({
+    type: "FRAME_APPLICATION",
+    info: {
+      fields: fillableFieldKeys().length,
+      hasResumeInput: Array.from(document.querySelectorAll<HTMLInputElement>('input[type="file"]')).some(
+        (input) => fileInputKind(input) === "resume",
+      ),
+    },
+  });
+  startSubmitWatcher(); // submissions happen inside the frame
+}
+
 function scheduleScan() {
   if (scanScheduled) return;
   scanScheduled = true;
@@ -1087,11 +1191,18 @@ function scheduleScan() {
       scanCount = 0;
     }
 
+    if (!IS_TOP) {
+      if (frameRegistered || scanCount >= MAX_SCANS_PER_URL) return;
+      scanCount++;
+      if (pageLooksLikeJobApplication()) registerFrame();
+      return;
+    }
+
     const button = document.getElementById(BUTTON_ID);
     if (button) {
       if (location.href !== injectedHref) {
         injectedHref = location.href;
-        if (!pageLooksLikeJobApplication()) button.remove();
+        if (!pageLooksLikeJobApplication() && !hasChildApplication) button.remove();
       }
       return;
     }
@@ -1104,8 +1215,18 @@ function scheduleScan() {
 
 function startWatching() {
   scheduleScan();
+  if (IS_TOP) {
+    // An application iframe may have reported before this script loaded.
+    chrome.runtime.sendMessage({ type: "GET_FRAME_INFO" }, (r) => {
+      if (!chrome.runtime.lastError && r?.frames?.length) {
+        hasChildApplication = true;
+        injectFillButton();
+      }
+    });
+  }
   const observer = new MutationObserver(() => {
-    if (document.getElementById(BUTTON_ID) && location.href === injectedHref) return;
+    if (!IS_TOP && frameRegistered) return;
+    if (IS_TOP && document.getElementById(BUTTON_ID) && location.href === injectedHref) return;
     scheduleScan();
   });
   observer.observe(document.documentElement, { childList: true, subtree: true });
@@ -1117,7 +1238,7 @@ const WEBAPP_ORIGIN = "http://localhost:5173";
 const WEBAPP_TOKEN_KEY = "resumeAutoFiller.token";
 
 function syncTokenFromWebapp() {
-  if (location.origin !== WEBAPP_ORIGIN) return;
+  if (!IS_TOP || location.origin !== WEBAPP_ORIGIN) return;
   const push = (token: unknown) => {
     if (typeof token === "string" && token) chrome.runtime.sendMessage({ type: "SYNC_TOKEN", token });
   };

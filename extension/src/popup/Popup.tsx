@@ -32,7 +32,7 @@ async function requestPageInfo(): Promise<PageInfo | null> {
   const id = await getActiveTabId();
   if (id == null) return null;
   try {
-    return (await chrome.tabs.sendMessage(id, { type: "GET_PAGE_INFO" })) as PageInfo;
+    return (await chrome.tabs.sendMessage(id, { type: "GET_PAGE_INFO" }, { frameId: 0 })) as PageInfo;
   } catch {
     return null; // restricted page (chrome://, web store) or no content script
   }
@@ -219,7 +219,7 @@ export default function Popup() {
     }
     setFillState("working");
     try {
-      const result = (await chrome.tabs.sendMessage(tabId, { type: "FILL_FORM", profile })) as {
+      const result = (await chrome.tabs.sendMessage(tabId, { type: "FILL_FORM", profile }, { frameId: 0 })) as {
         filled: number;
         attached: boolean;
       };

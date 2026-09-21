@@ -124,8 +124,7 @@ That builds the extension and starts the backend (`:8000`) and web app (`:5173`)
    in and your resume is attached. Review everything and submit it yourself.
 
 The extension signs itself in from the web app, so being logged in there (in the same browser) is
-enough. It only runs on the top-level page for now, so a company site that embeds its application
-form in an iframe won't show the button yet.
+enough. It also works when a company's careers page embeds the application form in an iframe.
 
 ## Installation (development)
 

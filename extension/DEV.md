@@ -133,16 +133,30 @@ built extension to test the full auth/upload/fill flow.
 - Field matching is heuristic (regex over name/id/placeholder/aria-label/associated label text).
   It won't catch every custom-built form; that's expected for this stage of the project.
 
-## Known limitations (tracked on the roadmap)
+## Application forms inside iframes
 
-- No structured multi-job work history or multi-school education -- only the first entry of each
-  fills in.
-- `<select>` dropdowns only fill when an option's visible text loosely matches the profile value.
-- No keyboard shortcut yet.
+Many company careers sites embed the ATS form in an iframe (e.g. Airbnb embedding Greenhouse's
+`/embed/job_app`). The content script therefore runs in **all frames** (`all_frames` in the
+manifest), with the work split so the button lands somewhere visible:
+
+- A child frame that `pageLooksLikeJobApplication()` sends `FRAME_APPLICATION` to the background
+  worker (which stores it per tab in `chrome.storage.session`) and starts the submit watcher
+  inside the frame. Child frames never draw a button: in an iframe sized to its content it would
+  sit at the bottom of the whole form, off-screen.
+- The worker tells the top frame `SHOW_BUTTON`. (If the frame reported before the top frame's
+  script loaded, the top frame asks with `GET_FRAME_INFO` on startup.) Registrations are validated
+  with a `PING` first, so frames that navigated away drop out.
+- On click, or on the popup's Autofill, the top frame runs `fillPageAndFrames`: it fills itself
+  (unless it only exists to host the embed) and sends `FILL_CHILD_FRAMES`; the worker sends
+  `FILL_HERE` to each live registered frame, which loads a fresh profile and runs `fillEverything`
+  in its own DOM (dropdowns, resume attach and all), and the counts are summed.
+- Logging and tracking use the **top page's** URL, company and role (`GET_TOP_INFO` relays it to
+  a frame that needs it for a submission), not the embed's, so a fill and a later submission
+  inside the frame dedupe to one application.
+- The popup talks to the top frame only (`{ frameId: 0 }`); its page info adds up the fields of
+  registered frames.
 
 ## Known limitations
 
-- **Embedded application forms (iframes).** The content script only runs in the top-level page, so
-  when a company's own careers site embeds the ATS form in an iframe (e.g. Airbnb embedding
-  Greenhouse's `/embed/job_app`), the button doesn't appear. Supporting this means running in
-  frames and relaying show/fill/log messages through the background worker to the top frame.
+- Forms rendered inside a closed shadow root, or inside iframes the extension can't inject into
+  (e.g. `sandbox` frames without `allow-scripts`), still aren't seen.
