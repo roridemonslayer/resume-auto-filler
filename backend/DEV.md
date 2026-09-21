@@ -53,6 +53,7 @@ The API is now at `http://localhost:8000`. Interactive docs at `http://localhost
 | PUT    | `/profile/demographics`| yes  | Set voluntary self-ID (veteran/gender/etc.)     |
 | GET    | `/resume/file`         | yes  | Download the stored original PDF (only ever your own) |
 | DELETE | `/resume/file`         | yes  | Delete the stored PDF (parsed fields are kept)   |
+| PUT    | `/profile/answers`     | yes  | Save reusable screening answers (work authorization, sponsorship, relocation, start date, country...) |
 | PUT    | `/profile/resume`      | yes  | Replace the editable resume fields (name, contact, education, experience, skills) |
 | GET    | `/applications`        | yes  | List the user's tracked applications, newest first |
 | POST   | `/applications`        | yes  | Track an application; re-posting the same `url` bumps the existing row instead of duplicating it |
@@ -113,6 +114,11 @@ Authenticated requests need `Authorization: Bearer <token>`.
 - `create_all()` never alters existing tables, so columns added after a table first shipped are
   listed in `ensure_columns()` (`app/database.py`) and added on startup. `resume_profiles` gained
   `linkedin_url`, `github_url`, `website_url` this way. Add future columns there too.
+
+- `PUT /profile/answers` stores the answers most applications repeat (`answer_profiles` table).
+  Yes/no fields are the strings `"yes"`/`"no"` (anything else is a 422); `null` means "don't answer
+  this one for me", the same convention as the EEO fields. They come back in `/profile/me` as
+  `answers`, which is what lets the extension fill screening questions and dropdowns.
 
 ## Tests
 

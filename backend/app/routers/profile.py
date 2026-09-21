@@ -4,9 +4,11 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import EeoProfile, ResumeProfile, User
+from app.models import AnswerProfile, EeoProfile, ResumeProfile, User
 from app.routers.resume import resume_profile_to_schema
 from app.schemas import (
+    AnswersIn,
+    AnswersOut,
     EeoProfileIn,
     EeoProfileOut,
     FullProfileOut,
@@ -36,6 +38,9 @@ def get_my_profile(current_user: User = Depends(get_current_user)):
         resume=resume,
         eeo=eeo,
         has_resume=current_user.resume_profile is not None,
+        answers=(
+            AnswersOut.model_validate(current_user.answers) if current_user.answers else AnswersOut()
+        ),
         resume_file=(
             ResumeFileInfo(name=stored.filename, size=stored.size, updated_at=stored.updated_at)
             if stored
@@ -93,3 +98,22 @@ def update_resume_profile(
     db.refresh(profile)
 
     return resume_profile_to_schema(profile)
+
+
+@router.put("/answers", response_model=AnswersOut)
+def update_answers(
+    payload: AnswersIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    answers = current_user.answers
+    if answers is None:
+        answers = AnswerProfile(user_id=current_user.id)
+        db.add(answers)
+
+    for field, value in payload.model_dump().items():
+        setattr(answers, field, value)
+
+    db.commit()
+    db.refresh(answers)
+    return AnswersOut.model_validate(answers)

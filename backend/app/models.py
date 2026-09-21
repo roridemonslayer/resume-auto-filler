@@ -30,6 +30,9 @@ class User(Base):
     resume_file: Mapped["ResumeFile"] = relationship(
         back_populates="user", uselist=False, cascade="all, delete-orphan"
     )
+    answers: Mapped["AnswerProfile"] = relationship(
+        back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )
 
 
 class ResumeProfile(Base):
@@ -120,3 +123,28 @@ class ResumeFile(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
     user: Mapped["User"] = relationship(back_populates="resume_file")
+
+
+class AnswerProfile(Base):
+    """Reusable answers to the screening questions most applications repeat
+    (work authorization, sponsorship, relocation, start date...). Yes/no answers
+    are stored as "yes"/"no"; null means "don't answer this for me"."""
+
+    __tablename__ = "answer_profiles"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True, nullable=False)
+
+    country: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    location: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    authorized_to_work: Mapped[str | None] = mapped_column(String(3), nullable=True)
+    requires_sponsorship: Mapped[str | None] = mapped_column(String(3), nullable=True)
+    willing_to_relocate: Mapped[str | None] = mapped_column(String(3), nullable=True)
+    open_to_in_person: Mapped[str | None] = mapped_column(String(3), nullable=True)
+    earliest_start: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    desired_salary: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    how_did_you_hear: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+
+    user: Mapped["User"] = relationship(back_populates="answers")

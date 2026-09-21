@@ -64,6 +64,31 @@ class EeoProfileOut(EeoProfileIn):
         from_attributes = True
 
 
+YesNo = Literal["yes", "no"]
+
+
+class AnswersIn(BaseModel):
+    country: str | None = Field(default=None, max_length=100)
+    location: str | None = Field(default=None, max_length=200)
+    authorized_to_work: YesNo | None = None
+    requires_sponsorship: YesNo | None = None
+    willing_to_relocate: YesNo | None = None
+    open_to_in_person: YesNo | None = None
+    earliest_start: str | None = Field(default=None, max_length=200)
+    desired_salary: str | None = Field(default=None, max_length=200)
+    how_did_you_hear: str | None = Field(default=None, max_length=200)
+
+    @field_validator("country", "location", "earliest_start", "desired_salary", "how_did_you_hear")
+    @classmethod
+    def _strip(cls, v: str | None) -> str | None:
+        return _clean_str(v)
+
+
+class AnswersOut(AnswersIn):
+    class Config:
+        from_attributes = True
+
+
 class ResumeFileInfo(BaseModel):
     name: str
     size: int
@@ -75,6 +100,7 @@ class FullProfileOut(BaseModel):
     eeo: EeoProfileOut
     has_resume: bool
     resume_file: ResumeFileInfo | None = None
+    answers: AnswersOut = AnswersOut()
 
 
 def _clean_str(value: str | None) -> str | None:
