@@ -1920,3 +1920,65 @@ a {
 .link-val:hover {
   text-decoration-color: var(--accent);
 }
+
+/* ---------- common answers ---------- */
+
+.qa-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.qa-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.qa-row:first-child {
+  border-top: 1px solid var(--border);
+}
+
+.qa-label {
+  font-size: 15.5px;
+  font-weight: 500;
+}
+
+@media (max-width: 700px) {
+  .qa-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
+
+.seg {
+  flex: 0 0 auto;
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--input-bg);
+}
+
+.seg button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 8px 18px;
+  border-radius: 999px;
+  font: 600 13.5px var(--font-body);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.seg button:hover {
+  color: var(--ink);
+}
+
+.seg button.on {
+  background: var(--accent);
+  color: var(--accent-ink);
+}

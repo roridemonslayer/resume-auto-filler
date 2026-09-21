@@ -1,4 +1,4 @@
-import type { Application, ApplicationInput, EeoProfile, FullProfile, ResumeProfile } from "./types";
+import type { AnswerProfile, Application, ApplicationInput, EeoProfile, FullProfile, ResumeProfile } from "./types";
 
 // Point this at your deployed backend before deploying the web app;
 // defaults to the local FastAPI dev server.
@@ -148,4 +148,14 @@ export async function deleteResumeFile(token: string): Promise<void> {
     headers: authHeaders(token),
   });
   if (!response.ok) throw new Error(await parseErrorDetail(response));
+}
+
+export async function updateAnswers(token: string, answers: AnswerProfile): Promise<AnswerProfile> {
+  const response = await fetch(`${API_BASE_URL}/profile/answers`, {
+    method: "PUT",
+    headers: authHeaders(token, true),
+    body: JSON.stringify(answers),
+  });
+  if (!response.ok) throw new Error(await parseErrorDetail(response));
+  return (await response.json()) as AnswerProfile;
 }

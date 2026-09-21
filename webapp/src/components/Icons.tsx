@@ -98,3 +98,12 @@ export function BoardIcon({ size = 17 }: IconProps) {
     </svg>
   );
 }
+
+export function ChatIcon({ size = 17 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" stroke="currentColor" {...common}>
+      <path d="M3.5 5.5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H9l-3.5 3v-3a2 2 0 0 1-2-2z" />
+      <path d="M7 7.6h6M7 10.2h3.5" />
+    </svg>
+  );
+}

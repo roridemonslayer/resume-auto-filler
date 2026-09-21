@@ -5,6 +5,7 @@ import ApplicationTracker, { useApplications } from "../components/ApplicationTr
 import {
   ArrowUpRightIcon,
   BoardIcon,
+  ChatIcon,
   DocumentIcon,
   IdBadgeIcon,
   OverviewIcon,
@@ -12,6 +13,7 @@ import {
   UploadIcon,
   UserIcon,
 } from "../components/Icons";
+import AnswersForm from "../components/AnswersForm";
 import ProfileEditor from "../components/ProfileEditor";
 import { useAuth } from "../context/AuthContext";
 import { deleteResumeFile, updateDemographics, uploadResume } from "../lib/api";
@@ -23,6 +25,7 @@ const SECTIONS = [
   { id: "resume", label: "Resume", Icon: DocumentIcon },
   { id: "details", label: "Profile details", Icon: UserIcon },
   { id: "applications", label: "Applications", Icon: BoardIcon },
+  { id: "answers", label: "Common answers", Icon: ChatIcon },
   { id: "eeo", label: "Voluntary info", Icon: IdBadgeIcon },
   { id: "extension", label: "Extension", Icon: PuzzleIcon },
 ];
@@ -427,10 +430,26 @@ export default function Dashboard() {
             <ApplicationTracker tracker={tracker} />
           </motion.div>
 
-          <motion.div id="eeo" className="card" {...cardMotion(3)}>
+          <motion.div id="answers" className="card" {...cardMotion(3)}>
             <div className="dash-card-head">
               <div>
-                <span className="eyebrow">04 — Voluntary info</span>
+                <span className="eyebrow">04 — Common answers</span>
+                <h2>Answer once, reuse everywhere</h2>
+              </div>
+              <span className="badge">Optional</span>
+            </div>
+            <p style={{ marginBottom: 26, fontSize: 15.5, maxWidth: "62ch" }}>
+              Most applications ask the same screening questions. Set your answers here and the
+              extension fills them, including the custom dropdowns. It only answers a question when
+              it clearly matches, and a question you mark Skip is always left for you.
+            </p>
+            <AnswersForm token={token} answers={profile?.answers} onSaved={refreshProfile} />
+          </motion.div>
+
+          <motion.div id="eeo" className="card" {...cardMotion(4)}>
+            <div className="dash-card-head">
+              <div>
+                <span className="eyebrow">05 — Voluntary info</span>
                 <h2>Voluntary identity information</h2>
               </div>
               <span className="badge">Optional</span>
@@ -477,9 +496,9 @@ export default function Dashboard() {
             </form>
           </motion.div>
 
-          <motion.div id="extension" className="card extension-card" {...cardMotion(4)}>
+          <motion.div id="extension" className="card extension-card" {...cardMotion(5)}>
             <div>
-              <span className="eyebrow">05 — Extension</span>
+              <span className="eyebrow">06 — Extension</span>
               <h2>Install the extension.</h2>
               <p>
                 The Chrome extension reads this profile to fill applications on any page. Log in
