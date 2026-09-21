@@ -104,9 +104,25 @@ Authenticated requests need `Authorization: Bearer <token>`.
   without the bytes. Files are stored unencrypted in the DB -- fine for local dev, not for
   production.
 
+- Resume parsing details worth knowing: the phone search looks in the header lines first and keeps
+  scanning past look-alikes (an area code can't start with 0/1, but the exchange is left loose so
+  `555-123-4567` placeholders still parse); skills drop `Category:` prefixes, split on commas
+  only outside brackets, and re-join a bracket that wrapped onto the next line; LinkedIn / GitHub
+  / personal-site links come from the PDF's real link annotations first (resumes often show only
+  the word "LinkedIn"), then from text. Only header links count as the personal site.
+- `create_all()` never alters existing tables, so columns added after a table first shipped are
+  listed in `ensure_columns()` (`app/database.py`) and added on startup. `resume_profiles` gained
+  `linkedin_url`, `github_url`, `website_url` this way. Add future columns there too.
+
 ## Tests
 
-There's no automated test suite yet. Manual smoke test:
+Parser unit tests (stdlib `unittest`, no extra install; run from `backend/`):
+
+```bash
+python -m unittest discover -s tests -t .
+```
+
+Beyond those there's no automated suite yet. Manual smoke test:
 
 ```bash
 curl -X POST localhost:8000/auth/signup -H 'Content-Type: application/json' \

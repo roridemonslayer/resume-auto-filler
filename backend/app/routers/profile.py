@@ -82,6 +82,9 @@ def update_resume_profile(
     profile.last_name = payload.last_name
     profile.email = payload.email
     profile.phone = payload.phone
+    profile.linkedin_url = payload.linkedin_url
+    profile.github_url = payload.github_url
+    profile.website_url = payload.website_url
     profile.education = json.dumps(payload.education)
     profile.skills = json.dumps(payload.skills)
     profile.work_history = json.dumps(payload.work_history)

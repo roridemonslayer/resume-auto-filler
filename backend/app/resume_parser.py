@@ -13,7 +13,22 @@ import re
 import pdfplumber
 
 EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
-PHONE_RE = re.compile(r"(\+?\d[\d\-.\s()]{8,}\d)")
+# North American style: optional +1, optional parentheses around the area code,
+# and space/dot/dash separators. Bounded so it can't start or end mid-number, and
+# the area code can't start with 0/1 (the exchange is left loose so placeholder
+# numbers like 555-123-4567 still parse).
+PHONE_NANP_RE = re.compile(r"(?<![\w.])(?:\+?1[\s.-]?)?\(?[2-9]\d{2}\)?[\s.-]?\d{3}[\s.-]?\d{4}(?![\w])")
+# Anything else that starts with a country code.
+PHONE_INTL_RE = re.compile(r"(?<![\w.])\+\d{1,3}[\s.-]?\(?\d{1,4}\)?(?:[\s.-]?\d{2,4}){2,4}(?![\w])")
+
+LINKEDIN_RE = re.compile(r"(?:https?://)?(?:[a-z]{2,3}\.)?linkedin\.com/in/([A-Za-z0-9_%-]+)", re.I)
+GITHUB_RE = re.compile(r"(?:https?://)?(?:www\.)?github\.com/([A-Za-z0-9-]+)(?![A-Za-z0-9-])", re.I)
+# A personal site: an explicit scheme or www., or a bare domain on a TLD people use for portfolios.
+WEBSITE_RE = re.compile(
+    r"(?:https?://|www\.)[^\s<>\"'|,;]+|(?<![@\w.-])[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:dev|io|me|app|design|tech|site|xyz|codes|page|work)(?:/[^\s<>\"'|,;]*)?",
+    re.I,
+)
+NOT_A_WEBSITE = re.compile(r"linkedin\.com|github\.com|mailto:|gmail\.com|outlook\.com|yahoo\.com|google\.com/(?:docs|drive)", re.I)
 
 EDUCATION_KEYWORDS = (
     "bachelor", "master", "b.s.", "b.a.", "m.s.", "m.a.", "ph.d", "phd",
@@ -36,17 +51,82 @@ def extract_text(pdf_bytes: bytes) -> str:
     return "\n".join(text_parts)
 
 
+def extract_hyperlinks(pdf_bytes: bytes) -> list[tuple[str, float]]:
+    """Link annotations on the first page as (uri, vertical position 0..1)."""
+    links: list[tuple[str, float]] = []
+    try:
+        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+            page = pdf.pages[0]
+            for link in page.hyperlinks:
+                uri = link.get("uri")
+                if uri:
+                    links.append((uri, float(link.get("top", 0)) / float(page.height or 1)))
+    except Exception:
+        pass  # links are a bonus; never fail the upload over them
+    return links
+
+
 def _find_email(text: str) -> str | None:
     match = EMAIL_RE.search(text)
     return match.group(0) if match else None
 
 
 def _find_phone(text: str) -> str | None:
-    match = PHONE_RE.search(text)
-    if not match:
-        return None
-    digits = re.sub(r"\D", "", match.group(0))
-    return match.group(0).strip() if 7 <= len(digits) <= 15 else None
+    """Prefer a number in the header (first lines), where contact info lives,
+    and keep looking past look-alikes instead of giving up on the first one."""
+    lines = [line for line in text.splitlines() if line.strip()]
+    header = "\n".join(lines[:15])
+
+    for haystack in (header, text):
+        for pattern in (PHONE_NANP_RE, PHONE_INTL_RE):
+            for match in pattern.finditer(haystack):
+                digits = re.sub(r"\D", "", match.group(0))
+                if pattern is PHONE_NANP_RE and len(digits) not in (10, 11):
+                    continue
+                if pattern is PHONE_INTL_RE and not 8 <= len(digits) <= 15:
+                    continue
+                return match.group(0).strip()
+    return None
+
+
+def _normalize_url(url: str) -> str:
+    url = url.strip().rstrip(".,;:)]}>")
+    return url if re.match(r"https?://", url, re.I) else f"https://{url}"
+
+
+def _find_links(text: str, hyperlinks: list[tuple[str, float]]) -> dict[str, str | None]:
+    """LinkedIn / GitHub / personal site. `hyperlinks` are the PDF's real link
+    annotations as (uri, vertical position 0=top..1=bottom of page 1); they beat
+    text matches because resumes often show only the word "LinkedIn"."""
+    linkedin = github = website = None
+
+    for uri, _ in hyperlinks:
+        if linkedin is None and (m := LINKEDIN_RE.search(uri)):
+            linkedin = f"https://www.linkedin.com/in/{m.group(1)}"
+        if github is None and (m := GITHUB_RE.search(uri)):
+            github = f"https://github.com/{m.group(1)}"
+
+    lines = [line for line in text.splitlines() if line.strip()]
+    header = "\n".join(lines[:20])
+    if linkedin is None and (m := LINKEDIN_RE.search(text)):
+        linkedin = f"https://www.linkedin.com/in/{m.group(1)}"
+    if github is None and (m := GITHUB_RE.search(text)):
+        github = f"https://github.com/{m.group(1)}"
+
+    # Only header links count as "my website": links further down are usually
+    # individual projects.
+    for uri, top in hyperlinks:
+        if top <= 0.2 and not NOT_A_WEBSITE.search(uri) and re.match(r"https?://", uri, re.I):
+            website = _normalize_url(uri)
+            break
+    if website is None:
+        without_emails = EMAIL_RE.sub(" ", header)
+        for m in WEBSITE_RE.finditer(without_emails):
+            if not NOT_A_WEBSITE.search(m.group(0)):
+                website = _normalize_url(m.group(0))
+                break
+
+    return {"linkedin_url": linkedin, "github_url": github, "website_url": website}
 
 
 def _guess_name(lines: list[str]) -> tuple[str | None, str | None]:
@@ -97,12 +177,54 @@ def _guess_education(lines: list[str], full_text: str) -> list[str]:
     ]
 
 
+def _split_outside_brackets(text: str) -> list[str]:
+    """Split a skills line on , ; | bullets, but not inside "(S3, SQS, ECS)"."""
+    parts: list[str] = []
+    buf: list[str] = []
+    depth = 0
+    for ch in text:
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth = max(0, depth - 1)
+        if ch in ",;|•·" and depth == 0:
+            parts.append("".join(buf))
+            buf = []
+        else:
+            buf.append(ch)
+    parts.append("".join(buf))
+    return [p.strip() for p in parts if p.strip()]
+
+
+SKILL_LABEL_RE = re.compile(r"^([A-Za-z][A-Za-z &/+.-]{1,40}):\s*(.*)$")
+
+
 def _guess_skills(lines: list[str]) -> list[str]:
     section = _section_lines(lines, SECTION_HEADERS["skills"])
-    skills: list[str] = []
+
+    # PDF text wraps lines, so re-join any line that opened a bracket it didn't close.
+    joined: list[str] = []
+    pending = ""
     for line in section:
-        parts = re.split(r"[,;|•]", line)
-        skills.extend(p.strip() for p in parts if p.strip())
+        pending = f"{pending} {line}".strip() if pending else line
+        if pending.count("(") > pending.count(")"):
+            continue
+        joined.append(pending)
+        pending = ""
+    if pending:
+        joined.append(pending)
+
+    skills: list[str] = []
+    seen: set[str] = set()
+    for line in joined:
+        # Drop a category label like "Languages:" or "Frameworks & Libraries:".
+        if (m := SKILL_LABEL_RE.match(line)) and len(m.group(1).split()) <= 5:
+            line = m.group(2)
+        for skill in _split_outside_brackets(line):
+            key = skill.lower()
+            if key not in seen:
+                seen.add(key)
+                skills.append(skill)
     return skills
 
 
@@ -124,4 +246,5 @@ def parse_resume(pdf_bytes: bytes) -> dict:
         "education": _guess_education(lines, text),
         "skills": _guess_skills(lines),
         "work_history": _guess_work_history(lines),
+        **_find_links(text, extract_hyperlinks(pdf_bytes)),
     }

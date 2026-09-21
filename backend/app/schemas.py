@@ -40,6 +40,9 @@ class ResumeProfileOut(BaseModel):
     last_name: str | None = None
     email: str | None = None
     phone: str | None = None
+    linkedin_url: str | None = None
+    github_url: str | None = None
+    website_url: str | None = None
     education: list[str] = []
     skills: list[str] = []
     work_history: list[str] = []
@@ -93,6 +96,9 @@ class ResumeProfileIn(BaseModel):
     last_name: str | None = Field(default=None, max_length=100)
     email: str | None = Field(default=None, max_length=255)
     phone: str | None = Field(default=None, max_length=50)
+    linkedin_url: str | None = Field(default=None, max_length=500)
+    github_url: str | None = Field(default=None, max_length=500)
+    website_url: str | None = Field(default=None, max_length=500)
     education: list[str] = Field(default_factory=list, max_length=60)
     skills: list[str] = Field(default_factory=list, max_length=150)
     work_history: list[str] = Field(default_factory=list, max_length=250)
@@ -101,6 +107,18 @@ class ResumeProfileIn(BaseModel):
     @classmethod
     def _strip_optional(cls, v: str | None) -> str | None:
         return _clean_str(v)
+
+    @field_validator("linkedin_url", "github_url", "website_url")
+    @classmethod
+    def _link(cls, v: str | None) -> str | None:
+        v = _clean_str(v)
+        if v is None:
+            return None
+        if not v.lower().startswith(("http://", "https://")):
+            v = f"https://{v}"  # people type "linkedin.com/in/me"
+        if " " in v or "." not in v:
+            raise ValueError("Enter a valid link")
+        return v
 
     @field_validator("email")
     @classmethod

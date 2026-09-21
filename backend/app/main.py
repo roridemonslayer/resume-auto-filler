@@ -1,10 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.database import Base, engine
+from app.database import Base, ensure_columns, engine
 from app.routers import applications, auth, profile, resume
 
 Base.metadata.create_all(bind=engine)
+ensure_columns()
 
 app = FastAPI(title="Resume Auto-Filler API")
 

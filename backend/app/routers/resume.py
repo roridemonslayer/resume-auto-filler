@@ -31,6 +31,9 @@ def resume_profile_to_schema(profile: ResumeProfile) -> ResumeProfileOut:
         last_name=profile.last_name,
         email=profile.email,
         phone=profile.phone,
+        linkedin_url=profile.linkedin_url,
+        github_url=profile.github_url,
+        website_url=profile.website_url,
         education=json.loads(profile.education) if profile.education else [],
         skills=json.loads(profile.skills) if profile.skills else [],
         work_history=json.loads(profile.work_history) if profile.work_history else [],
@@ -83,6 +86,9 @@ async def upload_resume(
     profile.last_name = extracted["last_name"]
     profile.email = extracted["email"]
     profile.phone = extracted["phone"]
+    profile.linkedin_url = extracted["linkedin_url"]
+    profile.github_url = extracted["github_url"]
+    profile.website_url = extracted["website_url"]
     profile.education = json.dumps(extracted["education"])
     profile.skills = json.dumps(extracted["skills"])
     profile.work_history = json.dumps(extracted["work_history"])
