@@ -10,6 +10,9 @@ interface ResumeProfile {
   last_name: string | null;
   email: string | null;
   phone: string | null;
+  linkedin_url: string | null;
+  github_url: string | null;
+  website_url: string | null;
   education: string[];
   skills: string[];
   work_history: string[];
@@ -35,6 +38,9 @@ type ProfileKey =
   | "phone"
   | "first_name"
   | "last_name"
+  | "linkedin"
+  | "github"
+  | "website"
   | "full_name"
   | "education"
   | "skills"
@@ -54,6 +60,9 @@ const FIELD_PATTERNS: Array<{ key: ProfileKey; patterns: RegExp[] }> = [
   { key: "phone", patterns: [/phone|mobile|cell/i] },
   { key: "first_name", patterns: [/first[\s_-]?name|given[\s_-]?name|fname\b/i] },
   { key: "last_name", patterns: [/last[\s_-]?name|surname|family[\s_-]?name|lname\b/i] },
+  { key: "linkedin", patterns: [/linked[\s_-]?in/i] },
+  { key: "github", patterns: [/git[\s_-]?hub/i] },
+  { key: "website", patterns: [/web[\s_-]?site|portfolio|personal[\s_-]?(site|page|url|link)|home[\s_-]?page|other[\s_-]?(link|url)/i] },
   { key: "veteran_status", patterns: [/veteran/i] },
   { key: "disability_status", patterns: [/disabilit/i] },
   { key: "sexual_orientation", patterns: [/sexual[\s_-]?orientation/i] },
@@ -110,6 +119,12 @@ function valueForKey(key: ProfileKey, profile: FullProfile): string | null {
       return profile.resume.first_name;
     case "last_name":
       return profile.resume.last_name;
+    case "linkedin":
+      return profile.resume.linkedin_url;
+    case "github":
+      return profile.resume.github_url;
+    case "website":
+      return profile.resume.website_url;
     case "full_name":
       return [profile.resume.first_name, profile.resume.last_name].filter(Boolean).join(" ") || null;
     case "education":

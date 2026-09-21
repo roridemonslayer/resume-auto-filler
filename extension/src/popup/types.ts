@@ -3,6 +3,9 @@ export interface ResumeProfile {
   last_name: string | null;
   email: string | null;
   phone: string | null;
+  linkedin_url: string | null;
+  github_url: string | null;
+  website_url: string | null;
   education: string[];
   skills: string[];
   work_history: string[];

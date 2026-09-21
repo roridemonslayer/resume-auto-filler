@@ -56,8 +56,8 @@ is no longer accurate now that the project supports accounts. Here's what's actu
 
 ## Features
 
-- Smart field matching by input name/id/placeholder/label text -- email, phone, name, education,
-  skills, work history
+- Smart field matching by input name/id/placeholder/label text -- email, phone, name, LinkedIn,
+  GitHub, website/portfolio, education, skills, work history
 - EEO/voluntary self-identification support -- veteran status, disability status, gender,
   race/ethnicity, sexual orientation -- entered once in the web app, filled via both `<select>`
   dropdowns and radio-button groups (Workday-style forms use radios, not selects)
