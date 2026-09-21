@@ -81,6 +81,12 @@ const Icons = {
       <path d="M6 16c.6-1.8 2-2.6 3-2.6s2.4.8 3 2.6M14.5 10h4M14.5 13.5h4" />
     </svg>
   ),
+  chat: (
+    <svg width="18" height="18" viewBox="0 0 24 24" {...icon}>
+      <path d="M4 6.5a2.5 2.5 0 0 1 2.5-2.5h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1-2.5 2.5H11l-4.5 3.8V16A2.5 2.5 0 0 1 4 13.5z" />
+      <path d="M8.5 8.8h7M8.5 11.7h4" />
+    </svg>
+  ),
   board: (
     <svg width="18" height="18" viewBox="0 0 24 24" {...icon}>
       <rect x="3.5" y="4" width="5" height="16" rx="1.5" />
@@ -335,6 +341,7 @@ export default function Popup() {
   const tracked = page?.url ? apps.find((a) => a.url === page.url) : undefined;
   const missingDetails = !resume || !resume.first_name || !resume.email || !resume.phone;
   const eeoSet = profile ? Object.values(profile.eeo).filter(Boolean).length : 0;
+  const answerCount = profile?.answers ? Object.values(profile.answers).filter(Boolean).length : 0;
   const interviewing = apps.filter((a) => a.status === "interviewing").length;
   const canFill = Boolean(profile?.has_resume) && page !== null && fillState !== "working";
 
@@ -423,6 +430,13 @@ export default function Popup() {
           {busy ? "Uploading..." : file ? "Upload a new resume" : "Upload your resume"}
         </button>
         <input ref={fileInput} type="file" accept="application/pdf" hidden onChange={handleUpload} />
+        <Row
+          icon={Icons.chat}
+          title="Common answers"
+          sub={answerCount ? `${answerCount} of 9 set` : "Set once: work authorization, relocation..."}
+          dot={answerCount === 0}
+          href={dashboard("#answers")}
+        />
         <Row icon={Icons.id} title="Voluntary info" sub={`${eeoSet} of 5 answered`} href={dashboard("#eeo")} />
         <Row
           icon={Icons.board}
